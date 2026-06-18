@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nueva solicitud · COMBUSES S.A.</title>
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(160deg,#1e3a5f,#16293f)}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+  .head{display:flex;align-items:center;justify-content:space-between;color:#fff;padding:14px 4px}
+  .head .who{font-size:12px;opacity:.85}
+  .head img{height:44px;background:#fff;border-radius:8px;padding:6px 10px}
+  .head button{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:22px;margin-top:14px}
+  .card h2{margin:0 0 4px;font-size:18px;color:#16293f}
+  .card .sub{color:#5a6b82;font-size:13px;margin:0 0 16px}
+  label{display:block;font-size:13px;font-weight:600;color:#374151;margin:12px 0 5px}
+  input,textarea{width:100%;padding:11px 12px;border:1.5px solid #cbd5e0;border-radius:10px;font-size:15px;font-family:inherit}
+  input:focus,textarea:focus{outline:none;border-color:#2c5282}
+  textarea{min-height:80px;resize:vertical}
+  .emp-info{font-size:13px;color:#2f855a;margin-top:5px;min-height:18px}
+  .btn{width:100%;padding:14px;border:none;border-radius:10px;background:#2c5282;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:18px}
+  .btn:disabled{background:#9ca3af}
+  .req{color:#c0392b}
+  .msg{margin-top:12px;font-size:14px;min-height:20px}
+  .msg.err{color:#b91c1c}.msg.ok{color:#15803d}
+  .sol-item{border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:10px}
+  .sol-item .t{font-weight:700;color:#16293f}
+  .sol-item .m{font-size:13px;color:#5a6b82;margin-top:3px}
+  .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px}
+  .badge.pendiente{background:#fef3c7;color:#92400e}
+  .badge.convertida{background:#dcfce7;color:#166534}
+  .badge.rechazada{background:#fee2e2;color:#991b1b}
+  .pq{font-size:12px;color:#5a6b82;margin-top:6px}
+  .muted{color:#9aa7b8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img id="logo" alt="COMBUSES">
+    <div style="text-align:right"><div class="who" id="who"></div>
+      <button id="btnSalir">Cerrar sesión</button></div>
+  </div>
+
+  <div class="card">
+    <h2>📝 Nueva solicitud de descargo</h2>
+    <p class="sub">Reporta el caso con los hechos y las pruebas. La coordinación revisará y generará la citación.</p>
+
+    <form id="form">
+      <label>Cédula del trabajador <span class="req">*</span></label>
+      <input id="cc" inputmode="numeric" placeholder="Escribe la cédula" autocomplete="off">
+      <div class="emp-info" id="empInfo"></div>
+
+      <label>Nombre</label>
+      <input id="nombre" placeholder="Se llena con la cédula (o escríbelo)">
+
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label>Área</label><input id="area"></div>
+        <div style="flex:1"><label>Cargo</label><input id="cargo"></div>
+      </div>
+
+      <label>Fecha de los hechos</label>
+      <input id="fechaHechos" type="date">
+
+      <label>Descripción de los hechos <span class="req">*</span></label>
+      <textarea id="hechos" placeholder="¿Qué pasó? Describe con detalle."></textarea>
+
+      <label>Falta / motivo <span class="req">*</span></label>
+      <textarea id="falta" placeholder="¿Qué falta se presentó?"></textarea>
+
+      <label>Pruebas (fotos / videos)</label>
+      <input id="archivos" type="file" accept="image/*,video/*" multiple>
+      <div class="pq" id="archInfo"></div>
+
+      <button type="submit" class="btn" id="btnEnviar">Enviar solicitud</button>
+      <div class="msg" id="msg"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>📋 Mis solicitudes</h2>
+    <div id="lista"><p class="muted" style="font-size:13px">Cargando…</p></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/branding.js"></script>
+<script src="js/empleados.js"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/campana.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const BUCKET = 'pruebas-disciplinarias';
+const nombreSeguro = n => String(n||'archivo').replace(/[^a-zA-Z0-9._-]/g,'_');
+const nuevaId = () => 's' + Date.now().toString(16) + Math.floor(Math.random()*9999).toString(16);
+let USUARIO = null;
+
+function mostrar(t, tipo){ const m=$('#msg'); m.textContent=t; m.className='msg '+(tipo||''); }
+
+// Autollenar por cédula
+$('#cc').addEventListener('input', () => {
+  const cc = ($('#cc').value||'').replace(/\D/g,'');
+  const emp = (window.EMPLEADOS||[]).find(e => String(e.cc).replace(/\D/g,'') === cc);
+  if (emp) {
+    $('#nombre').value = emp.nombre||''; $('#area').value = emp.area||''; $('#cargo').value = emp.cargo||'';
+    $('#empInfo').textContent = '✓ ' + (emp.nombre||'') + (emp.estado?(' · '+emp.estado):'');
+  } else { $('#empInfo').textContent = ''; }
+});
+$('#archivos').addEventListener('change', e => {
+  const n = e.target.files.length;
+  $('#archInfo').textContent = n ? `${n} archivo(s) seleccionado(s)` : '';
+});
+
+$('#form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const cc = ($('#cc').value||'').trim();
+  const hechos = ($('#hechos').value||'').trim();
+  const falta = ($('#falta').value||'').trim();
+  if (!cc || !hechos || !falta) { mostrar('Completa cédula, hechos y falta.', 'err'); return; }
+
+  const btn = $('#btnEnviar'); btn.disabled = true; btn.textContent = 'Enviando…'; mostrar('', '');
+  try {
+    const id = nuevaId();
+    const sol = {
+      id, creado_por: USUARIO.id, creado_por_email: USUARIO.email,
+      cc, nombre: $('#nombre').value.trim(), area: $('#area').value.trim(), cargo: $('#cargo').value.trim(),
+      fecha_hechos: $('#fechaHechos').value || null, hechos, falta, estado: 'pendiente'
+    };
+    const { error } = await SB.from('pd_solicitudes').insert(sol);
+    if (error) throw error;
+
+    // Subir pruebas (carpeta por solicitud)
+    const files = $('#archivos').files;
+    for (const f of files) {
+      const fid = nuevaId();
+      const path = `${id}/${fid}_${nombreSeguro(f.name)}`;
+      const up = await SB.storage.from(BUCKET).upload(path, f, { upsert: true, contentType: f.type || undefined });
+      if (!up.error) await SB.from('pd_pruebas').insert({ id: fid, proc_key: id, nombre: f.name, tipo: f.type, fecha: new Date().toISOString().slice(0,10), path });
+    }
+    mostrar('✅ Solicitud enviada correctamente.', 'ok');
+    $('#form').reset(); $('#empInfo').textContent=''; $('#archInfo').textContent='';
+    cargarLista();
+  } catch (err) {
+    mostrar('No se pudo enviar: ' + (err.message || err), 'err');
+  }
+  btn.disabled = false; btn.textContent = 'Enviar solicitud';
+});
+
+async function cargarLista() {
+  const cont = $('#lista');
+  try {
+    const { data, error } = await SB.from('pd_solicitudes').select('*').order('creado_en', { ascending: false });
+    if (error) throw error;
+    if (!data.length) { cont.innerHTML = '<p class="muted" style="font-size:13px">Aún no has enviado solicitudes.</p>'; return; }
+    cont.innerHTML = data.map(s => `
+      <div class="sol-item">
+        <div class="t">${esc(s.nombre || s.cc)} <span class="badge ${esc(s.estado)}">${esc(s.estado)}</span></div>
+        <div class="m">${esc((s.hechos||'').slice(0,120))}${(s.hechos||'').length>120?'…':''}</div>
+        <div class="m">Falta: ${esc((s.falta||'').slice(0,80))}</div>
+        ${s.observacion_admin ? `<div class="m">📌 Coordinación: ${esc(s.observacion_admin)}</div>` : ''}
+      </div>`).join('');
+  } catch (e) { cont.innerHTML = `<p class="muted" style="font-size:13px">No se pudo cargar: ${esc(e.message||e)}</p>`; }
+}
+
+$('#btnSalir').addEventListener('click', async () => {
+  try { await SB.auth.signOut(); } catch (e) {}
+  location.replace('login.html');
+});
+
+(async () => {
+  try { $('#logo').src = PD_BRANDING.logo; } catch (e) {}
+  const { data } = await SB.auth.getSession();
+  if (!data || !data.session) { location.replace('login.html'); return; }
+  USUARIO = data.session.user;
+  $('#who').textContent = '👤 ' + USUARIO.email;
+  cargarLista();
+})();
+</script>
+</body>
+</html>

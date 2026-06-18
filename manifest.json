@@ -1,0 +1,17 @@
+{
+  "name": "Procesos Disciplinarios · COMBUSES S.A.",
+  "short_name": "Procesos PD",
+  "description": "Gestión de procesos disciplinarios de COMBUSES S.A.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f6f9",
+  "theme_color": "#1e3a5f",
+  "lang": "es-CO",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,42 @@
+# ============================================================
+#  .gitignore — Procesos Disciplinarios COMBUSES
+#  Evita subir a GitHub datos personales y archivos temporales.
+# ============================================================
+
+# --- DATOS PERSONALES (NUNCA subir a un repo público) ---
+js/empleados.js
+js/empleados.bak.js
+js/datos_procesos.js
+datos_procesos.json
+
+# --- CREDENCIALES / CONFIGURACIÓN PRIVADA (usar los *.example.js como plantilla) ---
+js/supabase-config.js
+js/notificaciones.js
+
+# --- ARRANCADOR LOCAL (no se publica) ---
+server.py
+ABRIR PROGRAMA.bat
+
+# --- Respaldos viejos ---
+js/branding.bak.js
+*.bak
+*.bak.js
+
+# --- Archivos de prueba / temporales ---
+_test.html
+_parsecheck.html
+_reporte.json
+*.tmp
+*.log
+
+# --- PDFs generados localmente ---
+*.pdf
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- Sistema operativo ---
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procesos Disciplinarios · COMBUSES S.A.</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Procesos PD">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<!-- Conexión a Supabase + control de sesión -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<style>html:not(.pd-authed) #app{display:none}</style>
+<script>
+  // Guardia de sesión: si no hay sesión iniciada, ir al login
+  (async () => {
+    try {
+      const { data } = await SB.auth.getSession();
+      if (!data || !data.session) { location.replace('login.html'); return; }
+      document.documentElement.classList.add('pd-authed');
+    } catch (e) { location.replace('login.html'); }
+  })();
+</script>
+</head>
+<body>
+<div id="app">
+  <!-- Barra lateral -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">PD</div>
+      <div class="brand-text">
+        <strong>Procesos<br>Disciplinarios</strong>
+        <span>COMBUSES S.A.</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span> Tablero</button>
+      <button class="nav-item" data-view="procesos"><span class="ico">📋</span> Procesos</button>
+      <button class="nav-item" data-view="nuevo"><span class="ico">➕</span> Nuevo proceso</button>
+      <button class="nav-item" data-view="historial"><span class="ico">🔎</span> Historial por cédula</button>
+      <button class="nav-item" data-view="perfil"><span class="ico">👤</span> Perfil sociodemográfico</button>
+      <button class="nav-item" onclick="window.open('firmar.html','_blank')"><span class="ico">🖊️</span> Portal de firma</button>
+      <button class="nav-item" data-view="reportes"><span class="ico">📈</span> Reportes</button>
+      <button class="nav-item" data-view="usuarios"><span class="ico">👥</span> Usuarios y roles</button>
+      <button class="nav-item" data-view="config"><span class="ico">⚙️</span> Configuración</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="btnInstall" class="btn btn-ghost btn-sm" hidden>📲 Instalar app</button>
+      <button id="btnExport" class="btn btn-ghost btn-sm">⬇️ Respaldo</button>
+      <button id="btnImport" class="btn btn-ghost btn-sm">⬆️ Restaurar</button>
+      <span id="usuarioActual" style="font-size:11px;color:#9fb3c8;display:block;padding:4px 6px;word-break:break-all">👤 …</span>
+      <button id="btnLogout" class="btn btn-ghost btn-sm">🚪 Cerrar sesión</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+      <span class="version" id="appVersion" title="Ver novedades" style="cursor:pointer">v1.1.0</span>
+    </div>
+  </aside>
+
+  <!-- Contenido principal -->
+  <main class="main">
+    <header class="topbar">
+      <h1 id="viewTitle">Tablero</h1>
+      <div class="topbar-actions">
+        <input type="search" id="globalSearch" placeholder="Buscar nombre, cédula, ruta…" hidden>
+      </div>
+    </header>
+    <section id="content" class="content"><!-- render dinámico --></section>
+  </main>
+</div>
+
+<!-- Modal genérico -->
+<div id="modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Título</h3>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<div id="pwaUpdate" class="pwa-banner" hidden>
+  <span>🔄 Hay una versión nueva del programa.</span>
+  <button id="pwaUpdateBtn" class="btn btn-sm btn-primary">Actualizar ahora</button>
+</div>
+
+<script>
+// ---- PWA: registro del service worker + aviso de actualización ----
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloaded) { reloaded = true; location.reload(); }
+  });
+  navigator.serviceWorker.register('service-worker.js').then(reg => {
+    function ofrecer(worker) {
+      const b = document.getElementById('pwaUpdate');
+      if (b) b.hidden = false;
+      const btn = document.getElementById('pwaUpdateBtn');
+      if (btn) btn.onclick = () => { (reg.waiting || worker).postMessage('skipWaiting'); };
+    }
+    if (reg.waiting && navigator.serviceWorker.controller) ofrecer(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw && nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) ofrecer(nw);
+      });
+    });
+    // Buscar actualizaciones cada vez que se vuelve a la app
+    setInterval(() => reg.update().catch(() => {}), 60000);
+  }).catch(() => {});
+})();
+// ---- PWA: botón de instalar ----
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); _deferredPrompt = e;
+  const b = document.getElementById('btnInstall'); if (b) b.hidden = false;
+});
+window.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('btnInstall');
+  if (b) b.addEventListener('click', async () => {
+    if (!_deferredPrompt) return;
+    _deferredPrompt.prompt();
+    await _deferredPrompt.userChoice;
+    _deferredPrompt = null; b.hidden = true;
+  });
+});
+</script>
+
+<script>
+// Botón de cerrar sesión
+window.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('btnLogout');
+  if (b) b.addEventListener('click', async () => {
+    if (!confirm('¿Seguro que quieres cerrar la sesión?')) return;
+    try { await SB.auth.signOut(); } catch (e) {}
+    location.replace('login.html');
+  });
+  // Mostrar el usuario logueado
+  SB.auth.getUser().then(({ data }) => {
+    const u = document.getElementById('usuarioActual');
+    if (u) u.textContent = data && data.user ? '👤 ' + data.user.email : '👤 (sin sesión)';
+  }).catch(() => {});
+});
+</script>
+
+<script src="js/datos_procesos.js"></script>
+<script src="js/empleados.js"></script>
+<script src="js/faltas.js"></script>
+<script src="js/articulos.js"></script>
+<script src="js/branding.js"></script>
+<script src="js/notificaciones.js"></script>
+<script src="js/app.js"></script>
+<script src="js/campana.js"></script>
+</body>
+</html>

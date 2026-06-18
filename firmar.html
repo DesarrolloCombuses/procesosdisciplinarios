@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Portal de firma · COMBUSES S.A.</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  body{background:linear-gradient(160deg,#1e3a5f,#16293f);min-height:100vh;margin:0}
+  .fwrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+  .fhead{text-align:center;color:#fff;padding:18px 0 10px}
+  .fhead img{height:54px;background:#fff;border-radius:10px;padding:8px 12px}
+  .fhead h1{font-size:22px;margin:14px 0 2px}
+  .fhead p{opacity:.85;font-size:14px;margin:0}
+  .fcard{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:22px;margin-top:18px}
+  .fcard h2{margin:0 0 6px;font-size:18px;color:#16293f}
+  .fcard .sub{color:#5a6b82;font-size:14px;margin:0 0 16px}
+  .cc-input{width:100%;font-size:22px;padding:16px;border:2px solid #cbd5e0;border-radius:12px;text-align:center;letter-spacing:1px;box-sizing:border-box}
+  .cc-input:focus{outline:none;border-color:#2c5282}
+  .btn-xl{width:100%;font-size:18px;padding:16px;border:none;border-radius:12px;background:#2c5282;color:#fff;font-weight:700;cursor:pointer;margin-top:14px}
+  .btn-xl:active{transform:scale(.99)}
+  .doc-item{border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .doc-item .di-info{flex:1;min-width:200px}
+  .doc-item .di-tit{font-weight:700;color:#16293f;font-size:16px}
+  .doc-item .di-meta{color:#5a6b82;font-size:13px;margin-top:3px}
+  .doc-item .di-mot{color:#5a6b82;font-size:13px;margin-top:6px;background:#f7fafc;border-radius:8px;padding:8px 10px}
+  .btn-firmar{background:#2f855a;color:#fff;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap}
+  .firmado{color:#2f855a;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+  .vacio{text-align:center;color:#5a6b82;padding:30px 10px}
+  .vacio .big{font-size:46px}
+  /* Modal de firma */
+  .fmodal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:14px;z-index:50}
+  .fmodal.show{display:flex}
+  .fmodal-box{background:#fff;border-radius:16px;width:100%;max-width:620px;padding:20px}
+  .fmodal-box h3{margin:0 0 4px;color:#16293f}
+  .fmodal-box .sub{color:#5a6b82;font-size:13px;margin:0 0 12px}
+  .pad-cont{position:relative;border:2px dashed #cbd5e0;border-radius:12px;background:#fcfcfd}
+  #pad{width:100%;height:240px;display:block;touch-action:none;border-radius:12px}
+  .pad-hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#b0bccd;font-size:13px;pointer-events:none}
+  .pad-line{position:absolute;left:24px;right:24px;bottom:46px;border-bottom:2px solid #e2e8f0;pointer-events:none}
+  /* Vista del documento (leer antes de firmar) */
+  .doc-content{max-height:46vh;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;background:#fbfcfe;margin-bottom:6px}
+  .dc-head{font-weight:700;color:#16293f;font-size:15px;margin-bottom:10px;border-bottom:1px solid #e2e8f0;padding-bottom:8px}
+  .dc-b{margin-bottom:13px}
+  .dc-l{font-size:11.5px;font-weight:700;color:#2c5282;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+  .dc-v{font-size:14px;color:#2d3748;white-space:pre-wrap;line-height:1.5}
+  .leer-aviso{font-size:12.5px;color:#9a6b00;background:#fff8e6;border:1px solid #f4e2b0;border-radius:8px;padding:8px 10px;margin-bottom:10px}
+  .fmodal-acts{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .fmodal-acts button{flex:1;min-width:120px;padding:14px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;border:none}
+  .b-limpiar{background:#edf2f7;color:#2d3748}
+  .b-cancelar{background:#fff;border:1px solid #cbd5e0 !important;color:#2d3748}
+  .b-confirmar{background:#2f855a;color:#fff}
+  .ftoast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16293f;color:#fff;padding:13px 22px;border-radius:10px;font-weight:600;z-index:80;display:none}
+  .ftoast.show{display:block}
+  /* Campana flotante de firmas pendientes */
+  .campana{position:fixed;bottom:20px;right:20px;z-index:70;background:#2c5282;color:#fff;border:none;border-radius:50px;padding:13px 18px;font-size:15px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer;display:flex;align-items:center;gap:8px}
+  .campana .badge-num{background:#e53e3e;color:#fff;border-radius:50px;padding:2px 9px;font-size:13px}
+  .campana-panel{position:fixed;bottom:78px;right:20px;width:340px;max-width:92vw;max-height:62vh;overflow-y:auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.4);padding:14px;z-index:70;display:none}
+  .campana-panel.show{display:block}
+  .cp-item{border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer}
+  .cp-item:hover{background:#f1f5f9}
+  .cp-item .n{font-weight:700;color:#16293f;font-size:14px}
+  .cp-item .d{font-size:12px;color:#5a6b82;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="fwrap">
+  <div class="fhead">
+    <img id="logo" alt="COMBUSES" hidden>
+    <h1>Portal de firma</h1>
+    <p>Firma tus documentos del proceso disciplinario</p>
+  </div>
+
+  <!-- Paso 1: cédula -->
+  <div class="fcard" id="cardCedula">
+    <h2>Ingresa tu número de cédula</h2>
+    <p class="sub">Escribe tu cédula para ver los documentos que tienes pendientes por firmar.</p>
+    <input class="cc-input" id="cc" type="tel" inputmode="numeric" placeholder="Ej. 1017230368" autocomplete="off">
+    <button class="btn-xl" id="btnBuscar">🔎 Ver mis documentos</button>
+  </div>
+
+  <!-- Paso 2: documentos -->
+  <div id="resultado"></div>
+</div>
+
+<!-- Modal de firma -->
+<div class="fmodal" id="fmodal">
+  <div class="fmodal-box">
+    <h3 id="mTitulo">Firmar documento</h3>
+    <p class="sub" id="mSub"></p>
+
+    <!-- Paso A: leer el documento -->
+    <div id="docView">
+      <div class="leer-aviso">📄 Lee con atención el documento. Al firmar confirmas que lo recibiste y lo conoces.</div>
+      <div class="doc-content" id="docContent"></div>
+      <div class="fmodal-acts">
+        <button class="b-cancelar" id="bCerrarDoc">Cancelar</button>
+        <button class="b-confirmar" id="bLeido">Leí el documento · Continuar ✍️</button>
+      </div>
+    </div>
+
+    <!-- Paso B: firmar -->
+    <div id="signView" style="display:none">
+      <div class="pad-cont">
+        <canvas id="pad"></canvas>
+        <div class="pad-line"></div>
+        <div class="pad-hint" id="padHint">✍️ Firma aquí con el dedo o el mouse</div>
+      </div>
+      <div class="fmodal-acts">
+        <button class="b-limpiar" id="bLimpiar">↺ Borrar</button>
+        <button class="b-cancelar" id="bCancelar">← Volver a leer</button>
+        <button class="b-confirmar" id="bConfirmar">✓ Confirmar firma</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ftoast" id="ftoast"></div>
+
+<!-- Campana flotante: firmas pendientes desde hoy -->
+<button class="campana" id="campana" hidden>🔔 Pendientes <span class="badge-num" id="campanaNum">0</span></button>
+<div class="campana-panel" id="campanaPanel">
+  <div style="font-weight:700;color:#16293f;margin-bottom:8px">🔔 Firmas pendientes (desde hoy)</div>
+  <div style="font-size:12px;color:#5a6b82;margin-bottom:8px">Toca un conductor para buscarlo y recoger su firma.</div>
+  <div id="campanaLista"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/branding.js"></script>
+<script src="js/empleados.js"></script>
+<script src="js/supabase-config.js"></script>
+<script>
+// Lee los procesos desde la nube (Supabase)
+async function cargarProcesos() {
+  const { data, error } = await SB.from('procesos_disciplinarios').select('key,datos').limit(5000);
+  if (error) throw error;
+  return (data || []).map(r => (r.datos && typeof r.datos === 'object') ? r.datos : { key: r.key });
+}
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function toast(msg) { const t = $('#ftoast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600); }
+function hoyISO() { const d = new Date(); return d.toISOString().slice(0, 10); }
+
+// Tipos de documento que el trabajador puede firmar
+function tipoDecisionTxt(p) {
+  const t = norm(p.tipoDecision);
+  if (t.includes('llamado') || t.includes('atencion')) return 'Llamado de atención';
+  if (t.includes('terminacion') || t.includes('contrato')) return 'Terminación de contrato';
+  if (t.includes('invit')) return 'Invitación al mejoramiento';
+  if (t.includes('susp')) return 'Suspensión disciplinaria';
+  return 'Decisión / sanción';
+}
+const DOCS = [
+  { key: 'firmaCitacion', titulo: () => 'Citación a descargos',
+    aplica: p => !!(p.fechaCitacion && p.fechaCitacion.trim()),
+    fecha: p => p.fechaCitacion, resumen: p => p.motivo },
+  { key: 'firmaDescargos', titulo: () => 'Acta de diligencia de descargos',
+    aplica: p => norm(p.asistencia) === 'si' && !!((p.acta && p.acta.trim()) || (p.fechaActaDescargos && p.fechaActaDescargos.trim())),
+    fecha: p => p.fechaActaDescargos || p.fechaDiligenciamiento, resumen: p => p.motivo },
+  { key: 'firmaDecision', titulo: p => tipoDecisionTxt(p),
+    aplica: p => /sancion|llamado|atencion|invit|terminacion|finaliz/.test(norm(p.estado)) || !!(p.tipoDecision && p.tipoDecision.trim()),
+    fecha: p => p.fechaInicioSancion || p.fechaActaDescargos, resumen: p => p.motivo }
+];
+
+// ---- Filtro por fecha: solo procesos desde esta fecha en adelante ----
+// (cambia esta fecha si necesitas otro corte)
+const FECHA_CORTE = '2026-06-17';
+function aISO(f) {
+  if (!f) return null;
+  f = String(f).trim();
+  let m = f.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);            // dd/mm/yyyy
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = f.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);                  // yyyy-mm-dd
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  return null;
+}
+function fechaRefISO(p) {
+  const fechas = [p.fechaCitacion, p.fechaActaDescargos, p.fechaDiligenciamiento, p.fechaInicioSancion, p.fechaFinSancion]
+    .map(aISO).filter(Boolean);
+  return fechas.length ? fechas.sort().pop() : null;            // la más reciente
+}
+function desdeCorte(p) {
+  const f = fechaRefISO(p);
+  return !!f && f >= FECHA_CORTE;
+}
+
+// ---- Contenido legible del documento (para que la persona lo lea antes de firmar) ----
+function bloque(label, val) {
+  if (val === undefined || val === null || !String(val).trim()) return '';
+  return `<div class="dc-b"><div class="dc-l">${esc(label)}</div><div class="dc-v">${esc(val)}</div></div>`;
+}
+function contenidoDocumento(p, docKey) {
+  const cab = `<div class="dc-head">${esc(p.nombre || '')} · C.C. ${esc(p.cc || '')}</div>`;
+  if (docKey === 'firmaCitacion') {
+    return cab
+      + bloque('Documento', 'CITACIÓN A DESCARGOS')
+      + bloque('Fecha de citación', (p.fechaCitacion || '') + (p.horaCitacion ? '  ·  ' + p.horaCitacion : ''))
+      + bloque('Asunto', p.asunto)
+      + bloque('Motivo / hechos', p.motivo)
+      + bloque('Falta(s)', p.falta)
+      + bloque('Reglamento interno', p.reglamento)
+      + bloque('Responsable', p.responsable);
+  }
+  if (docKey === 'firmaDescargos') {
+    return cab
+      + bloque('Documento', 'ACTA DE DILIGENCIA DE DESCARGOS')
+      + bloque('Fecha', p.fechaActaDescargos || p.fechaDiligenciamiento)
+      + bloque('Motivo / hechos', p.motivo)
+      + bloque('Descargos (preguntas y respuestas)', p.acta)
+      + bloque('Observaciones', p.textoActa);
+  }
+  // Decisión / sanción
+  const periodo = (p.fechaInicioSancion || '') + (p.fechaFinSancion ? '  a  ' + p.fechaFinSancion : '');
+  return cab
+    + bloque('Documento', tipoDecisionTxt(p))
+    + bloque('Antecedentes', p.antecedentes)
+    + bloque('Resumen de descargos', p.resumenDescargos)
+    + bloque('Consideraciones', p.consideraciones)
+    + bloque('Decisión', p.tipoDecision)
+    + bloque('Numerales infringidos', p.numeralesSancion)
+    + bloque('Días de suspensión', p.diasSuspension)
+    + bloque('Período de la sanción', periodo)
+    + bloque('Fecha de reintegro', p.fechaReintegro)
+    + bloque('Compromisos', p.compromisos);
+}
+
+let PROCS = [];
+async function init() {
+  if (window.PD_BRANDING && window.PD_BRANDING.logo) { const l = $('#logo'); l.src = window.PD_BRANDING.logo; l.hidden = false; }
+  // Requiere sesión (operador de firma)
+  const { data } = await SB.auth.getSession();
+  if (!data || !data.session) { location.replace('login.html'); return; }
+  PROCS = await cargarProcesos();
+  pintarCampana();
+  // Si llega con ?cc=... (desde la campana de otra pantalla), buscar ese conductor
+  const ccUrl = new URLSearchParams(location.search).get('cc');
+  if (ccUrl) { $('#cc').value = ccUrl; buscar(); }
+}
+
+// ---- Campana: firmas pendientes desde hoy ----
+function pendientesGlobales() {
+  const pend = [];
+  PROCS.filter(desdeCorte).forEach(p => DOCS.forEach(d => {
+    if (d.aplica(p) && !p[d.key]) pend.push({ p, d, tit: typeof d.titulo === 'function' ? d.titulo(p) : d.titulo });
+  }));
+  return pend;
+}
+function pintarCampana() {
+  const pend = pendientesGlobales();
+  const btn = $('#campana'), num = $('#campanaNum'), lista = $('#campanaLista');
+  if (!btn) return;
+  btn.hidden = false;
+  num.textContent = pend.length;
+  num.style.display = pend.length ? 'inline-block' : 'none';
+  if (!pend.length) { lista.innerHTML = '<p style="font-size:13px;color:#5a6b82;margin:6px 2px">No hay firmas pendientes hoy. 🎉</p>'; return; }
+  lista.innerHTML = pend.map(x => `
+    <div class="cp-item" onclick="irAConductor('${String(x.p.cc || '').replace(/\\D/g, '')}')">
+      <div class="n">${esc(x.p.nombre || x.p.cc || '')}</div>
+      <div class="d">${esc(x.tit)} · C.C. ${esc(x.p.cc || '')}</div>
+    </div>`).join('');
+}
+function irAConductor(cc) {
+  $('#campanaPanel').classList.remove('show');
+  $('#cc').value = cc; buscar();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function buscar() {
+  const cc = ($('#cc').value || '').replace(/\D/g, '').trim();
+  if (!cc) { toast('Escribe tu cédula'); return; }
+  const todosCc = PROCS.filter(p => String(p.cc || '').replace(/\D/g, '') === cc);
+  const mios = todosCc.filter(desdeCorte);   // solo procesos desde la fecha de corte
+  const nombre = (window.EMPLEADOS || []).find(e => String(e.cc).replace(/\D/g, '') === cc)?.nombre
+    || todosCc[0]?.nombre || '';
+
+  const pendientes = [];
+  mios.forEach(p => DOCS.forEach(d => { if (d.aplica(p) && !p[d.key]) pendientes.push({ p, d }); }));
+  const firmados = [];
+  mios.forEach(p => DOCS.forEach(d => { if (d.aplica(p) && p[d.key]) firmados.push({ p, d }); }));
+
+  const cont = $('#resultado');
+  if (!mios.length) {
+    const msg = todosCc.length
+      ? `No tienes documentos recientes por firmar.<br>Si esperas un documento, consulta con la coordinación.`
+      : `No encontramos procesos con la cédula <strong>${esc(cc)}</strong>.<br>Verifica el número o consulta con la coordinación.`;
+    cont.innerHTML = `<div class="fcard"><div class="vacio"><div class="big">🔍</div>
+      <p>${msg}</p>
+      <button class="btn-xl" style="background:#edf2f7;color:#2d3748;margin-top:18px" onclick="reiniciar()">← Buscar otra cédula</button></div></div>`;
+    return;
+  }
+
+  const tarjeta = (item, firmado) => {
+    const { p, d } = item;
+    const tit = typeof d.titulo === 'function' ? d.titulo(p) : d.titulo;
+    const fe = d.fecha(p) || '';
+    const mot = (d.resumen(p) || '').slice(0, 140);
+    return `<div class="doc-item">
+        <div class="di-info">
+          <div class="di-tit">${esc(tit)}</div>
+          <div class="di-meta">${fe ? 'Fecha: ' + esc(fe) + ' · ' : ''}Proceso de ${esc(p.nombre || '')}</div>
+          ${mot ? `<div class="di-mot">${esc(mot)}${(d.resumen(p) || '').length > 140 ? '…' : ''}</div>` : ''}
+        </div>
+        ${firmado
+          ? `<div class="firmado">✅ Firmado</div>`
+          : `<button class="btn-firmar" onclick="abrirFirma('${p.key}','${d.key}',\`${esc(tit).replace(/`/g, '')}\`)">✍️ Firmar</button>`}
+      </div>`;
+  };
+
+  cont.innerHTML = `
+    <div class="fcard">
+      <h2>Hola${nombre ? ', ' + esc(nombre.split(' ').slice(-2).join(' ')) : ''} 👋</h2>
+      <p class="sub">${pendientes.length ? `Tienes <strong>${pendientes.length}</strong> documento(s) pendiente(s) por firmar.` : 'No tienes documentos pendientes por firmar. ¡Gracias!'}</p>
+      ${pendientes.map(it => tarjeta(it, false)).join('')}
+      ${firmados.length ? `<h2 style="margin-top:22px;font-size:15px;color:#5a6b82">Ya firmados</h2>${firmados.map(it => tarjeta(it, true)).join('')}` : ''}
+      <button class="btn-xl" style="background:#edf2f7;color:#2d3748;margin-top:18px" onclick="reiniciar()">← Buscar otra cédula</button>
+    </div>`;
+}
+
+function reiniciar() { $('#cc').value = ''; $('#resultado').innerHTML = ''; $('#cc').focus(); }
+
+// ---- Firma (canvas) ----
+let padCtx, dibujando = false, hayTinta = false, firmaActual = null;
+function abrirFirma(procKey, docKey, titulo) {
+  firmaActual = { procKey, docKey };
+  const proc = PROCS.find(p => p.key === procKey);
+  $('#mTitulo').textContent = titulo;
+  $('#mSub').textContent = 'Documento del proceso disciplinario';
+  $('#docContent').innerHTML = proc ? contenidoDocumento(proc, docKey) : '<p>No se encontró el documento.</p>';
+  $('#docContent').scrollTop = 0;
+  $('#docView').style.display = 'block';
+  $('#signView').style.display = 'none';
+  $('#fmodal').classList.add('show');
+}
+// Paso A -> Paso B: la persona ya leyó, ahora firma
+function irAFirmar() {
+  $('#mSub').textContent = 'Firma para confirmar que leíste y recibiste el documento.';
+  $('#docView').style.display = 'none';
+  $('#signView').style.display = 'block';
+  const canvas = $('#pad');
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width; canvas.height = rect.height;
+  padCtx = canvas.getContext('2d');
+  padCtx.lineWidth = 2.6; padCtx.lineCap = 'round'; padCtx.lineJoin = 'round'; padCtx.strokeStyle = '#16243d';
+  hayTinta = false; $('#padHint').style.display = 'block';
+}
+function volverADoc() { $('#signView').style.display = 'none'; $('#docView').style.display = 'block'; }
+function cerrarFirma() { $('#fmodal').classList.remove('show'); firmaActual = null; }
+function posPad(e) { const r = $('#pad').getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function setupPad() {
+  const c = $('#pad');
+  c.addEventListener('pointerdown', e => { dibujando = true; c.setPointerCapture(e.pointerId); const p = posPad(e); padCtx.beginPath(); padCtx.moveTo(p.x, p.y); $('#padHint').style.display = 'none'; });
+  c.addEventListener('pointermove', e => { if (!dibujando) return; const p = posPad(e); padCtx.lineTo(p.x, p.y); padCtx.stroke(); hayTinta = true; });
+  c.addEventListener('pointerup', () => { dibujando = false; });
+  c.addEventListener('pointercancel', () => { dibujando = false; });
+}
+function limpiarPad() { const c = $('#pad'); padCtx.clearRect(0, 0, c.width, c.height); hayTinta = false; $('#padHint').style.display = 'block'; }
+async function confirmarFirma() {
+  if (!firmaActual) return;
+  if (!hayTinta) { toast('Por favor firma antes de confirmar'); return; }
+  const { procKey, docKey } = firmaActual;
+  const proc = PROCS.find(p => p.key === procKey);
+  if (!proc) { toast('No se encontró el documento'); cerrarFirma(); return; }
+  proc[docKey] = $('#pad').toDataURL('image/png');
+  proc[docKey + 'Fecha'] = hoyISO();
+  try {
+    const { error } = await SB.from('procesos_disciplinarios').upsert({ key: proc.key, datos: proc }, { onConflict: 'key' });
+    if (error) throw error;
+    cerrarFirma();
+    toast('✅ Documento firmado');
+    buscar();
+    pintarCampana();
+  } catch (e) { toast('Error al guardar la firma: ' + (e.message || e)); }
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  setupPad();
+  $('#btnBuscar').addEventListener('click', buscar);
+  $('#cc').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+  $('#bCerrarDoc').addEventListener('click', cerrarFirma);
+  $('#bLeido').addEventListener('click', irAFirmar);
+  $('#bLimpiar').addEventListener('click', limpiarPad);
+  $('#bCancelar').addEventListener('click', volverADoc);
+  $('#bConfirmar').addEventListener('click', confirmarFirma);
+  const camp = $('#campana');
+  if (camp) camp.addEventListener('click', () => $('#campanaPanel').classList.toggle('show'));
+  try { await init(); } catch (e) { toast('No se pudo conectar a la nube'); }
+  $('#cc').focus();
+});
+</script>
+</body>
+</html>
