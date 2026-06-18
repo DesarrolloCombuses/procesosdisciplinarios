@@ -1,6 +1,6 @@
 // Service Worker - Procesos Disciplinarios COMBUSES
 // Manejo de versiones: al cambiar APP_VERSION se crea un caché nuevo y se avisa para actualizar.
-const APP_VERSION = '2.0.6';
+const APP_VERSION = '2.7.1';
 const CACHE = 'pd-cache-v' + APP_VERSION;
 
 // Recursos base que se guardan para funcionar sin conexión (parte visual)
@@ -14,6 +14,7 @@ const CORE = [
   'js/branding.js',
   'js/supabase-config.js',
   'js/notificaciones.js',
+  'js/documentos.js',
   'js/app.js',
   'js/campana.js',
   'manifest.json',

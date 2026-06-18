@@ -64,8 +64,52 @@ async function guardarConfigNube(cfg) {
 }
 
 /* ---------- 1b. Versión y novedades ---------- */
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.7.1';
 const NOVEDADES = [
+  { v: '2.7.1', f: '2026-06-18', items: [
+    'Modo producción activado: las notificaciones (correo y WhatsApp) ahora se envían a los datos reales del trabajador y a los líderes según su cargo. Se desactivó el modo prueba.'
+  ] },
+  { v: '2.7.0', f: '2026-06-18', items: [
+    'El portal de firma ahora muestra y firma el DOCUMENTO OFICIAL completo (idéntico al que se genera y envía), no un resumen. El admin y el portal usan la misma plantilla.',
+    'El PDF firmado que se archiva es el documento oficial con la firma en su lugar.'
+  ] },
+  { v: '2.6.3', f: '2026-06-18', items: [
+    'El correo de aviso a los líderes ahora es compatible con Pabbly (se eliminaron las comillas dobles del contenido).',
+    'Si una persona no tiene líder asignado según su cargo, el aviso se envía a administrativo@combuses.com.co.'
+  ] },
+  { v: '2.6.1', f: '2026-06-18', items: [
+    'Corregido un error que impedía abrir el Parte semanal y el Calendario.',
+    'La generación del PDF ahora reintenta automáticamente si la red falla un momento.'
+  ] },
+  { v: '2.6.0', f: '2026-06-17', items: [
+    'Detalle del proceso más completo: la sección «Sanción / Decisión» ahora muestra el tipo de decisión y todos sus datos (numerales, reintegro, recurso, consideraciones, compromisos).',
+    'Nueva sección «🖊️ Documentos y firmas» en el detalle: muestra si la persona firmó la citación, los descargos y la sanción, con la fecha.',
+    'El detalle ahora muestra también la fecha y las horas de inicio y finalización de la diligencia de descargos.'
+  ] },
+  { v: '2.5.0', f: '2026-06-17', items: [
+    'El aviso a los líderes ahora llega como un correo en HTML claro: a quién se citó a descargos y para qué día y hora.',
+    'Si el administrador cambia la fecha u hora de la citación al editar el proceso, el sistema ofrece reenviar la citación actualizada al trabajador y a los líderes.',
+    'Si se modifica una sanción ya decidida, el sistema ofrece reenviar la resolución de sanción actualizada al trabajador.'
+  ] },
+  { v: '2.4.0', f: '2026-06-17', items: [
+    'Los líderes a notificar ahora se editan desde ⚙️ Configuración (panel «Líderes a notificar») y se guardan en la nube; ya no hay que tocar el código para cambiar un correo o agregar un líder.'
+  ] },
+  { v: '2.3.0', f: '2026-06-17', items: [
+    'Nueva vista «📆 Calendario»: muestra en un calendario mensual todas las citaciones a descargos en su fecha. Se navega entre meses y al tocar una citación se abre el proceso.',
+    'Aviso a líderes: al generar una citación a descargos, se notifica por correo al líder del área (operaciones, control de flota, contabilidad o administrativo) con el nombre, cargo, fecha y hora de la diligencia.'
+  ] },
+  { v: '2.2.0', f: '2026-06-17', items: [
+    'Diligencia de descargos: al abrir el formulario se registran automáticamente la fecha de hoy y la hora de inicio; al generar el acta se registra la hora de finalización.',
+    'Nuevo botón «👁️ Vista previa» en la diligencia de descargos y en la sanción: muestra el documento tal como quedará, para revisarlo con el trabajador antes de generarlo (que confirme que está de acuerdo con lo que dijo).',
+    'El nombre de los PDF que se envían por WhatsApp/correo ahora sale limpio (sin el número largo).'
+  ] },
+  { v: '2.1.0', f: '2026-06-17', items: [
+    'Nuevo «Parte semanal de recordatorios»: muestra los citados a descargos/diligencias y las sanciones de la semana, más todos los procesos abiertos. Se puede imprimir o guardar en PDF.',
+    'Tablero: ahora destaca el «Empleado con más procesos disciplinarios» y el ranking de reincidentes es clickeable (lleva al historial).',
+    'El sistema ADVIERTE si el trabajador no tiene celular o correo (imprescindibles para las notificaciones): al cargar el empleado, al crear el proceso y al enviar el documento.',
+    'Portal de firma: documentos ordenados por fecha, con fecha grande tipo calendario y numerados, para no equivocarse cuando hay varios.',
+    'Al firmar, el documento firmado (con la firma estampada) se archiva automáticamente en la carpeta del proceso en la nube.'
+  ] },
   { v: '2.0.0', f: '2026-06-17', items: [
     'Todo en la nube (Supabase): procesos, fotos/videos y configuración. Ya no se guarda nada en el equipo.',
     'Nuevo panel «Usuarios y roles»: el administrador asigna el rol de cada usuario (administrador, solicitante, operador de firma).',
@@ -276,6 +320,8 @@ function fechaConDia(iso) {
 }
 function parseFecha(v) {
   if (!v) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;   // ya es una fecha
+  v = String(v);                                                 // asegurar texto (evita v.match no es función)
   if (/^\d{4}-\d{2}-\d{2}/.test(v)) { const [y,mo,d] = v.slice(0,10).split('-'); return new Date(+y, mo-1, +d); }
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
   if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2]-1, +m[1]); }
@@ -283,6 +329,8 @@ function parseFecha(v) {
 }
 // Convierte cualquier fecha a ISO yyyy-mm-dd para inputs date
 function aISO(v) { const d = parseFecha(v); if (!d) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+// Hora actual en formato HH:MM (para inputs time)
+function horaActualHM() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 
 // Construye los «Numerales infringidos» de la sanción a partir de lo registrado en la citación
 // (faltas del Art. 108 y artículos marcados en «Artículos infringidos»).
@@ -418,6 +466,9 @@ async function init() {
     if (!State.config.logo) State.config.logo = window.PD_BRANDING.logo;
     if (!State.config.pie) State.config.pie = window.PD_BRANDING.pie;
   }
+  // Líderes a notificar: si no hay configurados, usar los de fábrica. Se exponen para notificaciones.js
+  if (!State.config.lideres) State.config.lideres = JSON.parse(JSON.stringify(DEFAULT_LIDERES));
+  window.PD_LIDERES = State.config.lideres;
   enlazarUI();
   render();
 }
@@ -445,12 +496,14 @@ function irA(view) {
   render();
 }
 
-const TITULOS = { dashboard:'Tablero', procesos:'Procesos', nuevo:'Nuevo proceso', historial:'Historial por cédula', perfil:'Perfil sociodemográfico', reportes:'Reportes', usuarios:'Usuarios y roles', config:'Configuración', detalle:'Detalle del proceso', editar:'Editar proceso' };
+const TITULOS = { dashboard:'Tablero', recordatorios:'Parte semanal de recordatorios', calendario:'Calendario de citaciones', procesos:'Procesos', nuevo:'Nuevo proceso', historial:'Historial por cédula', perfil:'Perfil sociodemográfico', reportes:'Reportes', usuarios:'Usuarios y roles', config:'Configuración', detalle:'Detalle del proceso', editar:'Editar proceso' };
 function render() {
   $('#viewTitle').textContent = TITULOS[State.view] || '';
   $('#globalSearch').hidden = false;   // buscador siempre disponible (acceso directo)
   const c = $('#content');
   if (State.view === 'dashboard') renderDashboard(c);
+  else if (State.view === 'recordatorios') renderRecordatorios(c);
+  else if (State.view === 'calendario') renderCalendario(c);
   else if (State.view === 'procesos') { c.innerHTML = ''; renderProcesos(); }
   else if (State.view === 'nuevo') renderForm(c, null);
   else if (State.view === 'historial') renderHistorial(c);
@@ -492,6 +545,9 @@ function renderDashboard(c) {
   const personas = new Set(P.map(x => x.cc).filter(Boolean)).size;
   const porCC = agrupar(P.filter(x=>x.cc), x => x.cc);
   const reincidentes = porCC.filter(([,n]) => n > 1).length;
+  // Empleado con más procesos disciplinarios (el #1)
+  const top1 = porCC[0] || null;
+  const top1Reg = top1 ? P.find(p => p.cc === top1[0]) : null;
   const enCitacion = cnt('citacion');
   const enConversatorio = cnt('decision') + cnt('conversatorio');
   const conSancion = cnt('sancion');
@@ -523,6 +579,25 @@ function renderDashboard(c) {
       ${kpi('rojo', '⚖️', conSancion, 'Con sanción', 'sancion')}
       ${kpi('verde', '✅', finalizados, 'Finalizados', 'finaliz')}
       ${kpi('gris', '👥', personas, 'Empleados', null)}
+    </div>
+
+    <div class="panel" style="background:linear-gradient(135deg,#fff5f5,#ffffff);border-left:5px solid #e53e3e">
+      <div class="panel-head"><h2>🥇 Empleado con más procesos disciplinarios</h2></div>
+      <div class="panel-body">
+        ${top1Reg && top1[1] > 0 ? `
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="font-size:42px">🚩</div>
+            <div style="flex:1;min-width:180px">
+              <div style="font-size:21px;font-weight:800;color:#16293f">${esc(top1Reg.nombre || top1[0])}</div>
+              <div class="muted">C.C. ${esc(top1[0])}${top1Reg.area ? ' · ' + esc(top1Reg.area) : ''}${top1Reg.cargo ? ' · ' + esc(top1Reg.cargo) : ''}</div>
+            </div>
+            <div style="text-align:center;padding:0 10px">
+              <div style="font-size:36px;font-weight:800;color:#e53e3e;line-height:1">${top1[1]}</div>
+              <div class="muted">procesos</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="verHistorialCC('${top1[0]}')">📁 Ver historial</button>
+          </div>` : '<p class="muted">Aún no hay procesos registrados.</p>'}
+      </div>
     </div>
 
     <div class="panel">
@@ -559,12 +634,233 @@ function renderDashboard(c) {
   }).join('') || '<div class="empty"><div class="big">🎉</div>No hay procesos abiertos pendientes.</div>';
   $('#atencion').innerHTML = att;
 
-  const top = porCC.filter(([,n]) => n > 1).slice(0, 8).map(([cc, n]) => {
+  const medalla = i => i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
+  const top = porCC.filter(([,n]) => n > 1).slice(0, 8).map(([cc, n], i) => {
     const reg = P.find(p => p.cc === cc);
-    return `<div class="bar-row"><div class="bar-label" title="${esc(reg?.nombre||cc)}">${esc(reg?.nombre || cc)}</div>
+    return `<div class="bar-row" style="cursor:pointer" title="Ver historial de ${esc(reg?.nombre||cc)}" onclick="verHistorialCC('${cc}')">
+      <div class="bar-label">${medalla(i)}${esc(reg?.nombre || cc)}</div>
       <div class="bar-track"><div class="bar-fill rojo" style="width:${n/Math.max(porCC[0][1],1)*100}%">${n}</div></div></div>`;
   }).join('') || '<p class="muted">No hay reincidentes.</p>';
   $('#topReinc').innerHTML = top;
+}
+
+/* ---------- 6b. Parte semanal de recordatorios ---------- */
+// Ir al historial de un trabajador desde cualquier parte
+function verHistorialCC(cc) { State.histCC = String(cc || '').trim(); irA('historial'); }
+
+// Rango de la semana actual (lunes a domingo)
+function rangoSemana() {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const diaSem = (hoy.getDay() + 6) % 7;              // 0 = lunes
+  const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - diaSem);
+  const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6); domingo.setHours(23, 59, 59, 999);
+  return { lunes, domingo, hoy };
+}
+
+function renderRecordatorios(c) {
+  const P = State.procesos;
+  const { lunes, domingo } = rangoSemana();
+  const enSemana = d => d && d >= lunes && d <= domingo;
+  const abierto = p => !norm(p.estado).includes('finaliz') && !norm(p.estado).includes('cancel');
+
+  // Citaciones y diligencias de descargos de la semana
+  const descargos = [];
+  P.forEach(p => {
+    const fc = parseFecha(p.fechaCitacion);
+    if (enSemana(fc)) descargos.push({ f: fc, p, tipo: 'Citación a descargos', extra: p.horaCitacion ? '🕒 ' + p.horaCitacion : '' });
+    const fd = parseFecha(p.fechaActaDescargos || p.fechaDiligenciamiento);
+    if (enSemana(fd)) descargos.push({ f: fd, p, tipo: 'Diligencia de descargos', extra: '' });
+  });
+  descargos.sort((a, b) => a.f - b.f);
+
+  // Sanciones de la semana (inicio de sanción y reintegros)
+  const sanciones = [];
+  P.forEach(p => {
+    const fi = parseFecha(p.fechaInicioSancion);
+    if (enSemana(fi)) sanciones.push({ f: fi, p, tipo: (p.tipoDecision || 'Sanción') + ' · inicia', extra: p.diasSuspension ? p.diasSuspension + ' día(s)' : '' });
+    const fr = parseFecha(p.fechaReintegro);
+    if (enSemana(fr)) sanciones.push({ f: fr, p, tipo: 'Reintegro a labores', extra: '' });
+  });
+  sanciones.sort((a, b) => a.f - b.f);
+
+  // Procesos abiertos (no finalizados ni cancelados)
+  const abiertos = P.filter(abierto)
+    .map(p => ({ ...p, dias: diasDesde(p.fechaCitacion) }))
+    .sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
+
+  const filaEv = ev => `<tr>
+      <td>${esc(fechaConDia(aISO(ev.f)))}</td>
+      <td><strong>${esc(ev.p.nombre || '—')}</strong></td>
+      <td>${esc(ev.p.cc || '')}</td>
+      <td>${esc(ev.tipo)}${ev.extra ? ` · ${esc(ev.extra)}` : ''}</td>
+      <td class="no-print"><button class="btn btn-outline btn-sm" onclick="verDetalle('${ev.p.key}')">Ver</button></td>
+    </tr>`;
+  const filaAb = p => {
+    const np = proximoPaso(p);
+    const d = p.dias;
+    const dTxt = d == null ? 'sin fecha' : d === 0 ? 'hoy' : `hace ${d} día(s)`;
+    return `<tr>
+      <td><strong>${esc(p.nombre || '—')}</strong></td>
+      <td>${esc(p.cc || '')}</td>
+      <td>${estadoBadge(p.estado)}</td>
+      <td>${np.ico} ${esc(np.txt)}</td>
+      <td>${dTxt}</td>
+      <td class="no-print"><button class="btn btn-outline btn-sm" onclick="verDetalle('${p.key}')">Ver</button></td>
+    </tr>`;
+  };
+  const tablaEv = (rows, cols) => rows.length
+    ? `<table class="parte-tabla"><thead><tr>${cols.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
+    : `<p class="muted" style="padding:6px 2px">Nada programado para esta semana. 🎉</p>`;
+
+  c.innerHTML = `
+    <style>
+      .parte-tabla{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+      .parte-tabla th{text-align:left;background:#f1f5f9;color:#2c5282;font-size:12px;text-transform:uppercase;letter-spacing:.3px;padding:8px 10px;border-bottom:2px solid #e2e8f0}
+      .parte-tabla td{padding:9px 10px;border-bottom:1px solid #eef2f7;vertical-align:middle}
+      .parte-tabla tr:hover td{background:#f8fafc}
+      .parte-kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+      .parte-kpis .pk{flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+      .parte-kpis .pk .n{font-size:28px;font-weight:800;color:#16293f;line-height:1}
+      .parte-kpis .pk .l{color:#5a6b82;font-size:13px;margin-top:4px}
+    </style>
+    <div class="hero">
+      <div><h2>📅 Parte semanal de recordatorios</h2>
+        <p>Semana del <strong>${esc(fechaConDia(aISO(lunes)))}</strong> al <strong>${esc(fechaConDia(aISO(domingo)))}</strong></p></div>
+      <button class="btn btn-primary no-print" onclick="imprimirParte()">🖨️ Imprimir / PDF</button>
+    </div>
+    <div id="parteContenido">
+      <div class="parte-kpis">
+        <div class="pk"><div class="n">${descargos.length}</div><div class="l">📣 Citaciones / diligencias esta semana</div></div>
+        <div class="pk"><div class="n">${sanciones.length}</div><div class="l">⚖️ Sanciones / reintegros esta semana</div></div>
+        <div class="pk"><div class="n">${abiertos.length}</div><div class="l">📂 Procesos abiertos en total</div></div>
+      </div>
+
+      <div class="panel"><div class="panel-head"><h2>📣 Citados a descargos / diligencias (esta semana)</h2></div>
+        <div class="panel-body">${tablaEv(descargos.map(filaEv), ['Fecha', 'Trabajador', 'Cédula', 'Diligencia', ''])}</div></div>
+
+      <div class="panel"><div class="panel-head"><h2>⚖️ Sanciones y reintegros (esta semana)</h2></div>
+        <div class="panel-body">${tablaEv(sanciones.map(filaEv), ['Fecha', 'Trabajador', 'Cédula', 'Detalle', ''])}</div></div>
+
+      <div class="panel"><div class="panel-head"><h2>📂 Procesos abiertos (${abiertos.length})</h2>
+        <span class="muted">Del más antiguo al más reciente</span></div>
+        <div class="panel-body">${tablaEv(abiertos.map(filaAb), ['Trabajador', 'Cédula', 'Estado', 'Próximo paso', 'Antigüedad', ''])}</div></div>
+    </div>`;
+}
+
+// Imprime/guarda el parte en una ventana limpia (sin la barra lateral)
+function imprimirParte() {
+  const cont = document.getElementById('parteContenido');
+  if (!cont) return;
+  const titulo = 'Parte semanal de recordatorios · ' + (State.config.empresa || 'COMBUSES S.A.');
+  const w = window.open('', '_blank');
+  if (!w) { toast('Permite las ventanas emergentes para imprimir', 'err'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${esc(titulo)}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;color:#1a202c;padding:26px;margin:0}
+      h1{font-size:20px;color:#16293f;margin:0 0 4px}
+      .sub{color:#5a6b82;font-size:13px;margin:0 0 18px}
+      .panel{margin-bottom:20px}
+      .panel-head h2{font-size:15px;color:#2c5282;border-bottom:2px solid #e2e8f0;padding-bottom:5px;margin:18px 0 0}
+      .panel-head .muted{display:none}
+      table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+      th{text-align:left;background:#f1f5f9;padding:7px 9px;border-bottom:2px solid #cbd5e0;font-size:11px;text-transform:uppercase}
+      td{padding:7px 9px;border-bottom:1px solid #e8edf3}
+      .muted{color:#5a6b82}
+      .no-print{display:none!important}
+      .parte-kpis{display:flex;gap:14px;margin-bottom:10px}
+      .parte-kpis .pk{border:1px solid #cbd5e0;border-radius:8px;padding:10px 14px}
+      .parte-kpis .n{font-size:22px;font-weight:800}
+      .parte-kpis .l{font-size:12px;color:#5a6b82}
+    </style></head><body>
+    <h1>📅 ${esc(titulo)}</h1>
+    <p class="sub">Generado el ${esc(fechaConDia(hoyISO()))}</p>
+    ${cont.innerHTML}
+    </body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(() => { w.print(); }, 350);
+}
+
+/* ---------- 6c. Calendario de citaciones a descargos ---------- */
+function calNavegar(delta) {
+  if (State.calAnio == null) { const h = new Date(); State.calAnio = h.getFullYear(); State.calMes = h.getMonth(); }
+  let m = State.calMes + delta, a = State.calAnio;
+  while (m < 0) { m += 12; a--; }
+  while (m > 11) { m -= 12; a++; }
+  State.calMes = m; State.calAnio = a; render();
+}
+function calHoy() { const h = new Date(); State.calAnio = h.getFullYear(); State.calMes = h.getMonth(); render(); }
+
+function renderCalendario(c) {
+  const P = State.procesos;
+  if (State.calAnio == null) { const h = new Date(); State.calAnio = h.getFullYear(); State.calMes = h.getMonth(); }
+  const anio = State.calAnio, mes = State.calMes;
+  const MESES_N = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const DIAS_N = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+  // Citaciones a descargos del mes, agrupadas por día (yyyy-mm-dd)
+  const porDia = {};
+  P.forEach(p => {
+    const d = parseFecha(p.fechaCitacion);
+    if (d && d.getFullYear() === anio && d.getMonth() === mes) {
+      const k = aISO(p.fechaCitacion);
+      (porDia[k] = porDia[k] || []).push(p);
+    }
+  });
+  const totalMes = Object.values(porDia).reduce((s, a) => s + a.length, 0);
+
+  // Construir la grilla (lunes a domingo)
+  const primero = new Date(anio, mes, 1);
+  const offset = (primero.getDay() + 6) % 7;            // 0 = lunes
+  const diasMes = new Date(anio, mes + 1, 0).getDate();
+  const celdas = [];
+  for (let i = 0; i < offset; i++) celdas.push(null);
+  for (let d = 1; d <= diasMes; d++) celdas.push(d);
+  while (celdas.length % 7 !== 0) celdas.push(null);
+
+  const isoDe = d => `${anio}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const dosNombres = n => String(n || '—').split(' ').slice(0, 2).join(' ');
+  const celdaHTML = d => {
+    if (!d) return '<div class="cal-cel cal-vacia"></div>';
+    const iso = isoDe(d);
+    const items = (porDia[iso] || []).sort((a, b) => String(a.horaCitacion || '').localeCompare(String(b.horaCitacion || '')));
+    const esHoy = iso === hoyISO();
+    return `<div class="cal-cel${esHoy ? ' cal-hoy' : ''}">
+      <div class="cal-num">${d}${esHoy ? ' <span class="cal-hoy-tag">hoy</span>' : ''}</div>
+      ${items.slice(0, 4).map(p => `<div class="cal-cit" title="${esc(p.nombre || '')} · C.C. ${esc(p.cc || '')}${p.horaCitacion ? ' · ' + esc(p.horaCitacion) : ''}" onclick="verDetalle('${p.key}')">${p.horaCitacion ? `<b>${esc(p.horaCitacion)}</b> ` : ''}${esc(dosNombres(p.nombre))}</div>`).join('')}
+      ${items.length > 4 ? `<div class="cal-mas">+${items.length - 4} más</div>` : ''}
+    </div>`;
+  };
+
+  c.innerHTML = `
+    <style>
+      .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+      .cal-dow{text-align:center;font-weight:700;color:#5a6b82;font-size:12px;text-transform:uppercase;padding:6px 2px}
+      .cal-cel{min-height:104px;border:1px solid #e2e8f0;border-radius:10px;padding:6px;background:#fff;overflow:hidden}
+      .cal-vacia{background:#f7fafc;border-style:dashed}
+      .cal-hoy{border-color:#2c5282;box-shadow:0 0 0 2px rgba(44,82,130,.2)}
+      .cal-num{font-weight:700;color:#16293f;font-size:13px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+      .cal-hoy-tag{background:#2c5282;color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px}
+      .cal-cit{background:#ebf4ff;color:#2c5282;border-left:3px solid #2c5282;border-radius:5px;padding:3px 6px;font-size:11.5px;margin-bottom:3px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .cal-cit:hover{background:#dbeafe}
+      .cal-mas{font-size:11px;color:#5a6b82;padding:2px 4px;cursor:default}
+      @media(max-width:680px){.cal-cel{min-height:78px;padding:4px}.cal-cit{font-size:10.5px}}
+    </style>
+    <div class="hero">
+      <div><h2>📆 Calendario de citaciones a descargos</h2>
+        <p><strong>${MESES_N[mes]} ${anio}</strong> · ${totalMes} citación(es) este mes</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="calNavegar(-1)">‹ Anterior</button>
+        <button class="btn btn-primary" onclick="calHoy()">Hoy</button>
+        <button class="btn btn-outline" onclick="calNavegar(1)">Siguiente ›</button>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-body">
+      <div class="cal-grid">
+        ${DIAS_N.map(d => `<div class="cal-dow">${d}</div>`).join('')}
+        ${celdas.map(celdaHTML).join('')}
+      </div>
+      ${totalMes === 0 ? '<p class="muted" style="text-align:center;padding:14px">No hay citaciones a descargos en este mes.</p>' : '<p class="muted" style="font-size:12px;margin-top:10px">💡 Toca una citación para abrir el proceso.</p>'}
+    </div></div>`;
 }
 
 /* ---------- 7. Listado de procesos ---------- */
@@ -706,7 +1002,11 @@ function renderPasoForm(c, p) {
   // En el Paso 3 el Estado se deriva automáticamente del tipo de decisión.
   // Si el proceso ya está finalizado o cancelado, se respeta ese estado.
   const pForm = { ...p };
-  if (!esDesc) {
+  if (esDesc) {
+    // Al abrir la diligencia: si no se ha registrado, poner la fecha de hoy y la hora actual (inicio)
+    if (!String(p.fechaActaDescargos || '').trim()) pForm.fechaActaDescargos = hoyISO();
+    if (!String(p.horaActaDescargos || '').trim()) pForm.horaActaDescargos = horaActualHM();
+  } else {
     const cerrado = norm(p.estado).includes('finaliz') || norm(p.estado).includes('cancel');
     if (!cerrado) pForm.estado = estadoPorDecision(p.tipoDecision);
     // Numerales infringidos: se sugieren automáticamente desde la citación si están vacíos
@@ -740,6 +1040,7 @@ function renderPasoForm(c, p) {
       <div class="form-actions">
         <button type="button" class="btn btn-danger" id="btnBorrarPaso" style="margin-right:auto">🗑️ Borrar datos de este paso</button>
         <button type="button" class="btn btn-outline" onclick="verDetalle('${p.key}')">Cancelar</button>
+        <button type="button" class="btn btn-outline" id="btnPreviewPaso">👁️ Vista previa</button>
         <button type="submit" class="btn btn-success">💾 Guardar ${esDesc ? 'descargos' : 'sanción'}</button>
         <button type="button" class="btn btn-primary" id="btnGenPaso">${cfg.btn}</button>
       </div>
@@ -800,6 +1101,27 @@ function renderPasoForm(c, p) {
     if (bi) bi.addEventListener('click', () => sugerirPreguntasIA(bi));
   }
 
+  // Arma el registro con lo escrito en el formulario y lo guarda (sin navegar)
+  async function persistirPaso(marcarFin) {
+    const fd = new FormData($('#formPaso'));
+    // Combinar sobre la versión más reciente de la base (no perder firmas hechas en la tablet)
+    let base = { ...p };
+    try { const fresco = await DB.get('procesos', p.key); if (fresco) base = fresco; } catch (e) { /* sin problema */ }
+    const reg = { ...base };
+    secciones.forEach(s => s.campos.forEach(([k]) => { const val = fd.get(k); if (val !== null) reg[k] = val.toString().trim(); }));
+    // En descargos: al cerrar la diligencia, registrar la hora de finalización si está vacía
+    if (esDesc && marcarFin && !String(reg.horaDiligenciamiento || '').trim()) reg.horaDiligenciamiento = horaActualHM();
+    // Si el paso tiene selector de Estado y la persona eligió uno, se respeta; si no, se aplica el estado del paso.
+    const tieneCampoEstado = secciones.some(s => s.campos.some(([k]) => k === 'estado'));
+    const estadoElegido = (fd.get('estado') || '').toString().trim();
+    if (tieneCampoEstado && estadoElegido) reg.estado = estadoElegido;
+    else if (!norm(reg.estado || '').includes('finaliz')) reg.estado = cfg.estado;
+    const idx = State.procesos.findIndex(x => x.key === reg.key);
+    if (idx >= 0) State.procesos[idx] = reg; else State.procesos.push(reg);
+    State.current = reg;
+    await DB.put('procesos', reg);
+    return reg;
+  }
   async function guardar(generar) {
     // Validación de campos obligatorios según el paso
     const f = name => (document.querySelector(`#formPaso [name="${name}"]`)?.value || '').trim();
@@ -814,23 +1136,31 @@ function renderPasoForm(c, p) {
       }
     }
     if (!validarObligatorios('#formPaso', req).ok) return;
-    const fd = new FormData($('#formPaso'));
-    // Combinar sobre la versión más reciente de la base (no perder firmas hechas en la tablet)
-    let base = { ...p };
-    try { const fresco = await DB.get('procesos', p.key); if (fresco) base = fresco; } catch (e) { /* sin problema */ }
-    const reg = { ...base };
-    secciones.forEach(s => s.campos.forEach(([k]) => { const val = fd.get(k); if (val !== null) reg[k] = val.toString().trim(); }));
-    // Si el paso tiene selector de Estado y la persona eligió uno, se respeta; si no, se aplica el estado del paso.
-    const tieneCampoEstado = secciones.some(s => s.campos.some(([k]) => k === 'estado'));
-    const estadoElegido = (fd.get('estado') || '').toString().trim();
-    if (tieneCampoEstado && estadoElegido) reg.estado = estadoElegido;
-    else if (!norm(reg.estado || '').includes('finaliz')) reg.estado = cfg.estado;
-    const idx = State.procesos.findIndex(x => x.key === reg.key);
-    if (idx >= 0) State.procesos[idx] = reg; else State.procesos.push(reg);
-    State.current = reg;
-    await DB.put('procesos', reg);
-    if (generar) { State.view = 'detalle'; render(); generarDoc(cfg.doc); }
-    else { toast('Guardado', 'ok'); verDetalle(reg.key); }
+    // ¿Cambió algún dato de este paso respecto a lo guardado? (para ofrecer reenvío de la sanción)
+    let baseActual = { ...p };
+    try { const fresco = await DB.get('procesos', p.key); if (fresco) baseActual = fresco; } catch (e) { /* sin problema */ }
+    const fdAhora = new FormData($('#formPaso'));
+    const cambioPaso = secciones.some(s => s.campos.some(([k]) =>
+      (fdAhora.get(k) ?? '').toString().trim() !== String(baseActual[k] ?? '').trim()));
+    const yaTeniaSancion = !esDesc && String(baseActual.tipoDecision || '').trim();
+
+    const reg = await persistirPaso(generar);   // al generar el acta, marca la hora de finalización
+    if (generar) {
+      State.view = 'detalle'; render(); generarDoc(cfg.doc);
+    } else if (!esDesc && cambioPaso && yaTeniaSancion) {
+      // La sanción ya estaba decidida y se modificó → ofrecer reenviar la resolución al trabajador
+      if (confirm('Modificaste la sanción.\n\n¿Reenviar la resolución de sanción actualizada al trabajador?')) {
+        State.view = 'detalle'; render(); generarDoc('sancion');
+        toast('Sanción actualizada y reenviada', 'ok');
+      } else { toast('Cambios guardados (sin reenviar)', 'ok'); verDetalle(reg.key); }
+    } else {
+      toast('Guardado', 'ok'); verDetalle(reg.key);
+    }
+  }
+  // Vista previa: guarda lo escrito (sin navegar) y muestra el documento tal como quedará
+  async function previsualizar() {
+    await persistirPaso(false);
+    generarDoc(cfg.doc, true);
   }
   async function borrarPaso() {
     if (!confirm(`¿Borrar los datos de «${cfg.titulo}»?\nSe limpian solo los campos de este paso; el proceso NO se elimina.`)) return;
@@ -845,6 +1175,7 @@ function renderPasoForm(c, p) {
   }
   $('#formPaso').addEventListener('submit', e => { e.preventDefault(); guardar(false); });
   $('#btnGenPaso').addEventListener('click', () => guardar(true));
+  $('#btnPreviewPaso').addEventListener('click', previsualizar);
   $('#btnBorrarPaso').addEventListener('click', borrarPaso);
 
   // Guía: marcar con * los campos obligatorios del paso
@@ -926,6 +1257,19 @@ function renderDetalle(c, p) {
   if (!p) { irA('procesos'); return; }
   const reincid = State.procesos.filter(x => x.cc && x.cc === p.cc);
   const di = (lbl, val, long) => `<div class="di ${long?'long':''}"><dt>${lbl}</dt><dd>${val ? esc(val) : '<span class="muted">—</span>'}</dd></div>`;
+
+  // ¿Hay datos de sanción/decisión?
+  const haySancion = !!(p.tipoDecision || p.fechaInicioSancion || p.consideraciones || p.numeralesSancion || p.compromisos);
+
+  // Documentos del proceso y estado de su firma
+  const firmaEstado = (firmada, fecha) => firmada
+    ? `<span style="color:#2f855a;font-weight:700">✅ Firmada${fecha ? ' · ' + esc(fecha) : ''}</span>`
+    : `<span style="color:#b7791f;font-weight:700">⏳ Pendiente de firma</span>`;
+  const docsFirma = [];
+  if (p.fechaCitacion) docsFirma.push({ t: 'Citación a descargos', f: p.firmaCitacion, fe: p.firmaCitacionFecha });
+  if (norm(p.asistencia) === 'si' && (p.acta || p.fechaActaDescargos)) docsFirma.push({ t: 'Acta de diligencia de descargos', f: p.firmaDescargos, fe: p.firmaDescargosFecha });
+  if (p.tipoDecision || /sancion|llamado|atencion|invit|terminacion|finaliz/.test(norm(p.estado))) docsFirma.push({ t: p.tipoDecision || 'Decisión / sanción', f: p.firmaDecision, fe: p.firmaDecisionFecha });
+  const filaFirma = d => `<div class="di long"><dt>${esc(d.t)}</dt><dd>${firmaEstado(d.f, d.fe)}</dd></div>`;
   c.innerHTML = `
     <div class="detail-head">
       <div class="who"><h2>${esc(p.nombre || 'Sin nombre')}</h2>
@@ -952,12 +1296,32 @@ function renderDetalle(c, p) {
     </div></div></div>
     <div class="panel"><div class="panel-head"><h2>Citación y descargos</h2></div><div class="panel-body"><div class="dl">
       ${di('Fecha citación',p.fechaCitacion)}${di('Hora citación',p.horaCitacion)}${di('Asistencia',p.asistencia)}
+      ${di('Fecha de la diligencia',p.fechaActaDescargos)}${di('Hora de inicio',p.horaActaDescargos)}${di('Hora de finalización',p.horaDiligenciamiento)}
       ${di('Responsable',p.responsable)}${di('Disciplinario',p.disciplinario)}${di('Asunto',p.asunto)}
       ${p.acta?di('Acta de descargos',p.acta,true):''}${p.textoActa?di('Texto del acta',p.textoActa,true):''}
     </div></div></div>
-    <div class="panel"><div class="panel-head"><h2>Sanción</h2></div><div class="panel-body"><div class="dl">
-      ${di('Inicio sanción',p.fechaInicioSancion)}${di('Fin sanción',p.fechaFinSancion)}${di('Días suspensión',p.diasSuspension)}
-    </div></div></div>
+    <div class="panel"><div class="panel-head"><h2>Sanción / Decisión</h2></div><div class="panel-body">
+      ${p.tipoDecision ? `<div style="background:#fff5f5;border-left:4px solid #e53e3e;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+          <span style="font-size:11px;color:#822727;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Decisión tomada</span>
+          <div style="font-size:18px;font-weight:800;color:#16293f">${esc(p.tipoDecision)}</div></div>` : ''}
+      ${haySancion ? `<div class="dl">
+        ${di('Días de suspensión',p.diasSuspension)}${di('Inicio de suspensión',p.fechaInicioSancion)}${di('Fin de suspensión',p.fechaFinSancion)}
+        ${di('Fecha de reintegro',p.fechaReintegro)}
+        ${di('Numerales infringidos',p.numeralesSancion,true)}
+        ${di('Recurso de reposición ante',p.recursoAnte)}${di('Días para el recurso',p.recursoDias)}
+        ${p.antecedentes?di('Antecedentes',p.antecedentes,true):''}
+        ${p.resumenDescargos?di('Resumen de descargos',p.resumenDescargos,true):''}
+        ${p.consideraciones?di('Consideraciones y conclusiones',p.consideraciones,true):''}
+        ${p.compromisos?di('Compromisos de mejora',p.compromisos,true):''}
+      </div>` : '<p class="muted">Aún no se ha registrado la decisión / sanción.</p>'}
+    </div></div>
+
+    <div class="panel"><div class="panel-head"><h2>🖊️ Documentos y firmas</h2>
+      <button class="btn btn-outline btn-sm" onclick="menuDocumentos()">📄 Generar / reenviar</button></div>
+      <div class="panel-body">
+        ${docsFirma.length ? `<div class="dl">${docsFirma.map(filaFirma).join('')}</div>` : '<p class="muted">Aún no hay documentos en este proceso.</p>'}
+        <p class="muted" style="font-size:12px;margin-top:10px">📂 Cada documento generado/firmado queda archivado en la carpeta del proceso en la nube (se conservan todas las versiones).</p>
+      </div></div>
     ${reincid.length>1?`<div class="panel"><div class="panel-head"><h2>Historial de este empleado (${reincid.length})</h2></div>
       <div class="panel-body"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Motivo</th><th>Estado</th></tr></thead><tbody>
       ${reincid.sort((a,b)=>(parseFecha(b.fechaCitacion)||0)-(parseFecha(a.fechaCitacion)||0)).map(r=>`
@@ -1203,6 +1567,7 @@ function renderForm(c, p) {
     aplicarFaltas();                           // recalcular reincidencia con el empleado ya cargado
     mostrarHistorialEmpleado(emp.cc);          // mostrar cuántos procesos tiene y por qué
     toast(`Datos de ${emp.nombre} cargados`, 'ok');
+    if (!avisarContacto(emp.celular, emp.correo)) {} // advierte si falta celular/correo (notificaciones)
   });
 
   // Asistente: filtrar la lista de faltas por número o texto
@@ -1373,20 +1738,58 @@ function renderForm(c, p) {
     if (!reg.responsable) reg.responsable = State.config.responsable;
     if (!reg.empresa) reg.empresa = State.config.empresa;
     if (!editando) reg.estado = 'CITACION A DESCARGOS';
+    // Datos de contacto: imprescindibles para las notificaciones del proceso
+    const fc = faltaContacto(reg.celular, reg.correoNotificacion);
+    if (fc.ninguno) {
+      if (!confirm('⚠️ ATENCIÓN\n\nEste trabajador NO tiene celular NI correo registrado.\n\nSin estos datos NO podrá recibir las notificaciones del proceso disciplinario (citación, descargos, sanción).\n\n¿Deseas continuar de todas formas?')) return;
+    } else if (fc.cel || fc.correo) {
+      toast('⚠️ Falta ' + (fc.cel ? 'el celular' : 'el correo') + ' para las notificaciones', 'err');
+    }
+    // ¿Cambió la fecha u hora de la citación al editar? → hay que reenviar la citación
+    const cambioCitacion = editando &&
+      String(reg.fechaCitacion || '').trim() &&
+      ((base.fechaCitacion || '') !== (reg.fechaCitacion || '') || (base.horaCitacion || '') !== (reg.horaCitacion || ''));
     const idx = State.procesos.findIndex(x => x.key === reg.key);
     if (idx >= 0) State.procesos[idx] = reg; else State.procesos.push(reg);
     State.current = reg;
     await DB.put('procesos', reg);
     State.view = 'detalle'; render();
-    // Generar la citación de inmediato (el PDF se enviará al webhook desde imprimirDoc)
-    if (!editando) generarDoc('citacion');
-    toast(editando ? 'Cambios guardados' : 'Proceso creado · citación generada', 'ok');
+    if (!editando) {
+      // Generar la citación de inmediato (el PDF se enviará al webhook desde imprimirDoc)
+      generarDoc('citacion');
+      toast('Proceso creado · citación generada', 'ok');
+    } else if (cambioCitacion) {
+      if (confirm('Cambiaste la fecha u hora de la citación.\n\n¿Reenviar la citación actualizada al trabajador y a los líderes?')) {
+        generarDoc('citacion');   // reenvía al trabajador y, por ser citación, también a los líderes
+        toast('Citación actualizada y reenviada', 'ok');
+      } else {
+        toast('Cambios guardados (sin reenviar)', 'ok');
+      }
+    } else {
+      toast('Cambios guardados', 'ok');
+    }
   });
 
   // Guía: marcar con * los campos obligatorios
   marcarObligatorios('#formProceso', editando
     ? ['nombre', 'cc']
     : ['nombre', 'cc', 'motivo', 'fechaCitacion', 'horaCitacion']);
+}
+
+/* ---------- 9a-bis. Datos de contacto para notificaciones ---------- */
+// Comprueba si faltan celular o correo (imprescindibles para notificar al trabajador)
+function faltaContacto(cel, correo) {
+  const c = String(cel || '').replace(/\D/g, '');
+  const m = String(correo || '').trim();
+  return { cel: !c, correo: !m, ninguno: !c && !m };
+}
+// Muestra una advertencia (toast) si falta algún dato de contacto. Devuelve true si está completo.
+function avisarContacto(cel, correo) {
+  const f = faltaContacto(cel, correo);
+  if (f.ninguno) { toast('⚠️ Sin celular NI correo: el trabajador no podrá recibir las notificaciones', 'err'); return false; }
+  if (f.cel) { toast('⚠️ Falta el celular: no se podrá notificar por WhatsApp', 'err'); return false; }
+  if (f.correo) { toast('⚠️ Falta el correo: no se podrá notificar por email', 'err'); return false; }
+  return true;
 }
 
 /* ---------- 9b. Historial por cédula ---------- */
@@ -1660,6 +2063,52 @@ function renderReportes(c) {
 }
 
 /* ---------- 11. Configuración ---------- */
+// Líderes a notificar por defecto (se pueden editar desde Configuración y se guardan en la nube)
+const DEFAULT_LIDERES = {
+  reglas: [
+    { etiqueta: 'Operaciones (conductores y gestores)', frases: 'conductor, gestor', correo: 'direccionoperaciones@combuses.com.co' },
+    { etiqueta: 'Control de flota', frases: 'flota', correo: 'coordcontrol@combuses.com.co' },
+    { etiqueta: 'Contabilidad', frases: 'contab, contad', correo: 'contador@combuses.com.co' }
+  ],
+  adminCorreo: 'administrativo@combuses.com.co',
+  adminExcluye: 'conductor, gestor, flota'
+};
+function lidModel() {
+  if (!State.config.lideres) State.config.lideres = JSON.parse(JSON.stringify(DEFAULT_LIDERES));
+  if (!Array.isArray(State.config.lideres.reglas)) State.config.lideres.reglas = [];
+  return State.config.lideres;
+}
+function htmlLideres() {
+  const L = lidModel();
+  const filas = L.reglas.map((r, i) => `
+    <div class="lid-fila" style="display:grid;grid-template-columns:1.2fr 1fr 1.5fr auto;gap:8px;align-items:end;margin-bottom:8px">
+      <div class="field"><label>Nombre del grupo</label><input value="${esc(r.etiqueta || '')}" onchange="lidSet(${i},'etiqueta',this.value)"></div>
+      <div class="field"><label>Si el cargo contiene…</label><input value="${esc(r.frases || '')}" placeholder="conductor, gestor" onchange="lidSet(${i},'frases',this.value)"></div>
+      <div class="field"><label>Correo del líder</label><input type="email" value="${esc(r.correo || '')}" onchange="lidSet(${i},'correo',this.value)"></div>
+      <button type="button" class="btn btn-danger btn-sm" title="Quitar" onclick="lidQuitar(${i})">✕</button>
+    </div>`).join('');
+  return `${filas || '<p class="muted">No hay reglas. Agrega una.</p>'}
+    <button type="button" class="btn btn-outline btn-sm" onclick="lidAgregar()">➕ Agregar grupo/líder</button>
+    <hr style="margin:14px 0;border:none;border-top:1px solid #e2e8f0">
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px">
+      <div class="field"><label>Correo de administrativos (copia)</label><input type="email" value="${esc(L.adminCorreo || '')}" onchange="lidSetAdmin('adminCorreo',this.value)"></div>
+      <div class="field"><label>Cargos operativos que NO llevan esa copia</label><input value="${esc(L.adminExcluye || '')}" placeholder="conductor, gestor, flota" onchange="lidSetAdmin('adminExcluye',this.value)"></div>
+    </div>
+    <div class="form-actions"><button type="button" class="btn btn-success" onclick="lidGuardar()">💾 Guardar líderes</button></div>`;
+}
+function lidSet(i, campo, val) { lidModel().reglas[i][campo] = val.trim(); }
+function lidSetAdmin(campo, val) { lidModel()[campo] = val.trim(); }
+function lidAgregar() { lidModel().reglas.push({ etiqueta: '', frases: '', correo: '' }); const e = document.getElementById('panelLideres'); if (e) e.innerHTML = htmlLideres(); }
+function lidQuitar(i) { lidModel().reglas.splice(i, 1); const e = document.getElementById('panelLideres'); if (e) e.innerHTML = htmlLideres(); }
+async function lidGuardar() {
+  State.config = { ...State.config, id: 'app' };
+  try {
+    await DB.put('config', State.config);
+    window.PD_LIDERES = State.config.lideres;   // refrescar para notificaciones.js
+    toast('Líderes guardados en la nube', 'ok');
+  } catch (e) { toast('No se pudo guardar: ' + (e.message || e), 'err'); }
+}
+
 function renderConfig(c) {
   const cf = State.config;
   c.innerHTML = `
@@ -1697,6 +2146,11 @@ function renderConfig(c) {
         </div>
       </div><div class="form-actions"><button class="btn btn-success">💾 Guardar API key</button></div></form>
       <p class="muted" style="font-size:12px">Con la API key activada, en la diligencia de descargos podrás pulsar <strong>«✨ Sugerir preguntas con IA»</strong> para que Claude genere preguntas a la medida del caso. La key se guarda solo en este navegador. Consíguela en <strong>console.anthropic.com</strong>.</p>
+      </div></div>
+    <div class="panel"><div class="panel-head"><h2>📨 Líderes a notificar (citación a descargos)</h2></div>
+      <div class="panel-body">
+        <p class="muted" style="font-size:13px;margin-top:0">Cuando se cita a alguien a descargos, se avisa por correo al líder según su <strong>cargo</strong>. Escribe en «Si el cargo contiene…» una o varias palabras separadas por coma; si el cargo del trabajador contiene alguna, se avisa a ese correo.</p>
+        <div id="panelLideres">${htmlLideres()}</div>
       </div></div>
     <div class="panel"><div class="panel-head"><h2>Datos y respaldo</h2></div><div class="panel-body">
       <p class="muted">Hay <strong>${State.procesos.length}</strong> procesos guardados en este navegador.</p>
@@ -1849,14 +2303,18 @@ function cerrarModal() { $('#modal').hidden = true; }
 
 /* ---------- 13. Generación de documentos ---------- */
 function menuDocumentos() {
+  const acciones = tipo => `<div style="display:flex;gap:6px">
+      <button class="btn btn-outline btn-sm" title="Ver cómo queda" onclick="generarDoc('${tipo}', true)">👁️ Vista previa</button>
+      <button class="btn btn-primary btn-sm" onclick="generarDoc('${tipo}')">Generar</button>
+    </div>`;
   abrirModal('Generar documento', `<div class="notif-list">
-    <div class="notif-item"><div class="ni-ico">📄</div><div class="ni-body"><strong>Citación a descargos</strong><span>Carta formal de citación</span></div><button class="btn btn-primary btn-sm" onclick="generarDoc('citacion')">Generar</button></div>
-    <div class="notif-item"><div class="ni-ico">📝</div><div class="ni-body"><strong>Acta de descargos</strong><span>Si la asistencia es «NO», genera el acta de inasistencia automáticamente</span></div><button class="btn btn-primary btn-sm" onclick="generarDoc('acta')">Generar</button></div>
-    <div class="notif-item"><div class="ni-ico">⚖️</div><div class="ni-body"><strong>Resolución de sanción</strong><span>Comunicación de la sanción impuesta</span></div><button class="btn btn-primary btn-sm" onclick="generarDoc('sancion')">Generar</button></div>
-  </div><p class="muted mt" style="font-size:12px">Al pulsar «Generar», el PDF se descarga solo en tu carpeta de Descargas.</p>`);
+    <div class="notif-item"><div class="ni-ico">📄</div><div class="ni-body"><strong>Citación a descargos</strong><span>Carta formal de citación</span></div>${acciones('citacion')}</div>
+    <div class="notif-item"><div class="ni-ico">📝</div><div class="ni-body"><strong>Acta de descargos</strong><span>Si la asistencia es «NO», genera el acta de inasistencia automáticamente</span></div>${acciones('acta')}</div>
+    <div class="notif-item"><div class="ni-ico">⚖️</div><div class="ni-body"><strong>Resolución de sanción</strong><span>Comunicación de la sanción impuesta</span></div>${acciones('sancion')}</div>
+  </div><p class="muted mt" style="font-size:12px">👁️ <strong>Vista previa</strong>: muestra el documento sin descargarlo ni enviarlo. «Generar» crea el PDF y lo envía por WhatsApp/correo.</p>`);
 }
 
-async function generarDoc(tipo) {
+async function generarDoc(tipo, preview = false) {
   cerrarModal();
   // Releer el proceso desde la base para incluir firmas hechas en el Portal de firma (tablet)
   if (State.current && State.current.key) {
@@ -1870,6 +2328,8 @@ async function generarDoc(tipo) {
     } catch (e) { /* sin problema */ }
   }
   const p = State.current, cf = State.config;
+  // Documento generado con la plantilla OFICIAL compartida (la misma que usa el portal de firma)
+  if (window.PD_DOCS) { const _d = PD_DOCS.construir(tipo, p, cf); return entregarDoc(_d.titulo, _d.cuerpo, _d.showTitle, preview); }
   const hoy = fechaLarga(hoyISO());
   const firma = `<div class="firma"><p>Atentamente,</p>
     <div class="firma-linea">${cf.firmaImg?`<img src="${cf.firmaImg}" alt="firma">`:''}</div>
@@ -1913,7 +2373,7 @@ async function generarDoc(tipo) {
         <div class="fc-col"><p>Recibí:</p><div class="fc-sp">${p.firmaCitacion?`<img src="${p.firmaCitacion}" alt="firma trabajador">`:''}</div>
           <p>C.C: ${esc(p.cc||'____________')}<br>NOMBRE: ${esc(p.nombre||'____________')}</p></div>
       </div>`;
-    imprimirDoc(titulo, cuerpo, false);
+    entregarDoc(titulo, cuerpo, false, preview);
     return;
   } else if (tipo === 'acta') {
     const fechaDil = p.fechaActaDescargos || p.fechaDiligenciamiento || p.fechaCitacion;
@@ -2052,7 +2512,20 @@ async function generarDoc(tipo) {
   }
   // El acta de diligencia trae su propio encabezado → sin título centrado. La de inasistencia y la sanción sí.
   const conTitulo = !(tipo === 'acta' && norm(p.asistencia) !== 'no');
-  imprimirDoc(titulo, cuerpo, conTitulo);
+  entregarDoc(titulo, cuerpo, conTitulo, preview);
+}
+
+// Decide la salida del documento: vista previa en pantalla o PDF (descarga + envío)
+function entregarDoc(titulo, cuerpo, showTitle, preview) {
+  if (preview) return previsualizarDoc(titulo, cuerpo, showTitle);
+  return imprimirDoc(titulo, cuerpo, showTitle);
+}
+// Muestra el documento tal como quedará, en una ventana aparte (para revisarlo con el trabajador)
+function previsualizarDoc(titulo, cuerpo, showTitle) {
+  const html = armarDocumentoHTML(titulo, cuerpo, showTitle);
+  const w = window.open('', '_blank');
+  if (!w) { toast('Permite las ventanas emergentes para ver la vista previa', 'err'); return; }
+  w.document.write(html); w.document.close(); w.focus();
 }
 
 // Estilos del documento PDF (maquetación compacta validada: logo arriba, pie junto a las firmas)
@@ -2104,15 +2577,9 @@ function nombreArchivo(titulo, p) {
   return `${slug(titulo) || 'documento'}_${slug(p.nombre) || 'doc'}_${hoyISO()}.pdf`;
 }
 
-// Arma el HTML completo del documento (con membrete) para enviarlo al servidor
+// Arma el HTML completo del documento (con membrete) usando la plantilla OFICIAL compartida
 function armarDocumentoHTML(titulo, cuerpo, showTitle) {
-  const cf = State.config;
-  const header = cf.logo ? `<div class="doc-header"><img src="${cf.logo}" alt="logo"></div>` : '';
-  const footer = cf.pie ? `<div class="doc-footer"><img src="${cf.pie}" alt="pie"></div>` : '';
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${esc(titulo)}</title>
-    <style>${PRINT_CSS}</style></head><body><div class="doc-wrap">
-      ${header}${showTitle ? `<h1>${esc(titulo)}</h1>` : ''}${cuerpo}${footer}
-    </div></body></html>`;
+  return window.PD_DOCS.documentoHTML(titulo, cuerpo, showTitle, State.config);
 }
 
 // Genera y DESCARGA el PDF directamente (1 clic): el servidor lo crea con Edge
@@ -2122,12 +2589,26 @@ async function imprimirDoc(titulo, cuerpo, showTitle = true) {
   const html = armarDocumentoHTML(titulo, cuerpo, showTitle);
   toast('Generando PDF…');
   try {
-    const res = await fetch('/generar-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, filename })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Reintenta hasta 3 veces ante fallos de red transitorios (ERR_NETWORK_CHANGED, etc.)
+    const pedirPDF = async () => {
+      let ultimoError;
+      for (let intento = 1; intento <= 3; intento++) {
+        try {
+          const res = await fetch('/generar-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ html, filename })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res;
+        } catch (e) {
+          ultimoError = e;
+          if (intento < 3) { toast(`Reintentando generar el PDF (${intento}/2)…`); await new Promise(r => setTimeout(r, 900)); }
+        }
+      }
+      throw ultimoError;
+    };
+    const res = await pedirPDF();
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2135,6 +2616,9 @@ async function imprimirDoc(titulo, cuerpo, showTitle = true) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     toast('PDF descargado ✓', 'ok');
+    // Avisar si no hay datos de contacto para enviar la notificación
+    const fc = faltaContacto(p.celular || p.celularCitado, p.correoNotificacion || p.correoCitado);
+    if (fc.ninguno) toast('⚠️ Sin celular ni correo: el documento no se podrá enviar al trabajador', 'err');
     // Enviar el PDF al webhook de Pabbly (para WhatsApp/correo)
     if (window.enviarDocumentoWebhook) enviarDocumentoWebhook(blob, filename, p, titulo);
   } catch (err) {

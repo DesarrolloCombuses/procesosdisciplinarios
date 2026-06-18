@@ -19,11 +19,20 @@
   .cc-input:focus{outline:none;border-color:#2c5282}
   .btn-xl{width:100%;font-size:18px;padding:16px;border:none;border-radius:12px;background:#2c5282;color:#fff;font-weight:700;cursor:pointer;margin-top:14px}
   .btn-xl:active{transform:scale(.99)}
-  .doc-item{border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  .doc-item .di-info{flex:1;min-width:200px}
+  .doc-item{border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+  .doc-item .di-info{flex:1;min-width:180px}
+  .doc-item .di-num{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#2c5282;border-radius:50px;padding:2px 10px;margin-bottom:6px;letter-spacing:.3px}
   .doc-item .di-tit{font-weight:700;color:#16293f;font-size:16px}
   .doc-item .di-meta{color:#5a6b82;font-size:13px;margin-top:3px}
   .doc-item .di-mot{color:#5a6b82;font-size:13px;margin-top:6px;background:#f7fafc;border-radius:8px;padding:8px 10px}
+  /* Fecha tipo calendario (muy visible para no equivocarse) */
+  .di-fecha{flex-shrink:0;width:66px;text-align:center;background:#2c5282;color:#fff;border-radius:12px;padding:9px 4px;display:flex;flex-direction:column;justify-content:center;line-height:1.05}
+  .di-fecha .dia{font-size:25px;font-weight:800}
+  .di-fecha .mes{font-size:12px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+  .di-fecha .anio{font-size:11px;opacity:.88;margin-top:1px}
+  .di-fecha.sinf{background:#e2e8f0;color:#718096}
+  .di-fecha.nofe{background:#edf2f7;color:#a0aec0;font-size:11px;font-weight:700}
+  .firmar-aviso{font-size:13px;color:#1a4731;background:#e6fffa;border:1px solid #b2f5ea;border-radius:10px;padding:10px 12px;margin:0 0 14px}
   .btn-firmar{background:#2f855a;color:#fff;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap}
   .firmado{color:#2f855a;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
   .vacio{text-align:center;color:#5a6b82;padding:30px 10px}
@@ -126,9 +135,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/lib/html2pdf.bundle.min.js"></script>
 <script src="js/branding.js"></script>
 <script src="js/empleados.js"></script>
 <script src="js/supabase-config.js"></script>
+<script src="js/documentos.js"></script>
 <script>
 // Lee los procesos desde la nube (Supabase)
 async function cargarProcesos() {
@@ -142,6 +153,20 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 function toast(msg) { const t = $('#ftoast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600); }
 function hoyISO() { const d = new Date(); return d.toISOString().slice(0, 10); }
+
+// ---- Fechas legibles (a partir de un ISO yyyy-mm-dd) ----
+const MES_CORTO = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+const MES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function fechaPartes(iso) {
+  if (!iso) return null;
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return { dia: String(+m[3]), mes: MES_CORTO[(+m[2]) - 1] || '', anio: m[1], mesNum: +m[2] };
+}
+function fechaLegible(iso) {
+  const p = fechaPartes(iso);
+  return p ? `${p.dia} de ${MES_LARGO[p.mesNum - 1]} de ${p.anio}` : '';
+}
 
 // Tipos de documento que el trabajador puede firmar
 function tipoDecisionTxt(p) {
@@ -227,11 +252,22 @@ function contenidoDocumento(p, docKey) {
 }
 
 let PROCS = [];
+let CFG = {};
+// Mapea el campo de firma al tipo de documento de la plantilla oficial
+const TIPO_DOC = { firmaCitacion: 'citacion', firmaDescargos: 'acta', firmaDecision: 'sancion' };
+// Carga la configuración (logo, firma, empresa…) desde la nube para armar el documento oficial
+async function cargarConfig() {
+  let cfg = {};
+  try { const { data } = await SB.from('pd_config').select('datos').eq('id', 'app').maybeSingle(); if (data && data.datos) cfg = data.datos; } catch (e) { /* usa branding por defecto */ }
+  if (window.PD_BRANDING) { if (!cfg.logo) cfg.logo = window.PD_BRANDING.logo; if (!cfg.pie) cfg.pie = window.PD_BRANDING.pie; }
+  return cfg;
+}
 async function init() {
   if (window.PD_BRANDING && window.PD_BRANDING.logo) { const l = $('#logo'); l.src = window.PD_BRANDING.logo; l.hidden = false; }
   // Requiere sesión (operador de firma)
   const { data } = await SB.auth.getSession();
   if (!data || !data.session) { location.replace('login.html'); return; }
+  CFG = await cargarConfig();
   PROCS = await cargarProcesos();
   pintarCampana();
   // Si llega con ?cc=... (desde la campana de otra pantalla), buscar ese conductor
@@ -280,6 +316,11 @@ function buscar() {
   const firmados = [];
   mios.forEach(p => DOCS.forEach(d => { if (d.aplica(p) && p[d.key]) firmados.push({ p, d }); }));
 
+  // Ordenar por fecha (cronológico: más antiguo primero; sin fecha al final)
+  const claveFecha = it => aISO(it.d.fecha(it.p)) || '9999-99-99';
+  pendientes.sort((a, b) => claveFecha(a).localeCompare(claveFecha(b)));
+  firmados.sort((a, b) => claveFecha(a).localeCompare(claveFecha(b)));
+
   const cont = $('#resultado');
   if (!mios.length) {
     const msg = todosCc.length
@@ -291,15 +332,21 @@ function buscar() {
     return;
   }
 
-  const tarjeta = (item, firmado) => {
+  const tarjeta = (item, firmado, idx, total) => {
     const { p, d } = item;
     const tit = typeof d.titulo === 'function' ? d.titulo(p) : d.titulo;
-    const fe = d.fecha(p) || '';
+    const iso = aISO(d.fecha(p));
+    const fp = fechaPartes(iso);
     const mot = (d.resumen(p) || '').slice(0, 140);
+    const badge = fp
+      ? `<div class="di-fecha${firmado ? ' sinf' : ''}"><span class="dia">${fp.dia}</span><span class="mes">${fp.mes}</span><span class="anio">${fp.anio}</span></div>`
+      : `<div class="di-fecha nofe">Sin<br>fecha</div>`;
     return `<div class="doc-item">
+        ${badge}
         <div class="di-info">
+          ${total > 1 ? `<span class="di-num">Documento ${idx + 1} de ${total}</span><br>` : ''}
           <div class="di-tit">${esc(tit)}</div>
-          <div class="di-meta">${fe ? 'Fecha: ' + esc(fe) + ' · ' : ''}Proceso de ${esc(p.nombre || '')}</div>
+          <div class="di-meta">📅 ${iso ? esc(fechaLegible(iso)) : 'Sin fecha'} · ${esc(p.nombre || '')}</div>
           ${mot ? `<div class="di-mot">${esc(mot)}${(d.resumen(p) || '').length > 140 ? '…' : ''}</div>` : ''}
         </div>
         ${firmado
@@ -308,12 +355,17 @@ function buscar() {
       </div>`;
   };
 
+  const avisoVarios = pendientes.length > 1
+    ? `<div class="firmar-aviso">📋 Tienes varios documentos. Están <strong>ordenados por fecha</strong> (del más antiguo al más reciente). Fírmalos <strong>de arriba hacia abajo</strong> para no equivocarte.</div>`
+    : '';
+
   cont.innerHTML = `
     <div class="fcard">
       <h2>Hola${nombre ? ', ' + esc(nombre.split(' ').slice(-2).join(' ')) : ''} 👋</h2>
       <p class="sub">${pendientes.length ? `Tienes <strong>${pendientes.length}</strong> documento(s) pendiente(s) por firmar.` : 'No tienes documentos pendientes por firmar. ¡Gracias!'}</p>
-      ${pendientes.map(it => tarjeta(it, false)).join('')}
-      ${firmados.length ? `<h2 style="margin-top:22px;font-size:15px;color:#5a6b82">Ya firmados</h2>${firmados.map(it => tarjeta(it, true)).join('')}` : ''}
+      ${avisoVarios}
+      ${pendientes.map((it, i) => tarjeta(it, false, i, pendientes.length)).join('')}
+      ${firmados.length ? `<h2 style="margin-top:22px;font-size:15px;color:#5a6b82">Ya firmados</h2>${firmados.map((it, i) => tarjeta(it, true, i, firmados.length)).join('')}` : ''}
       <button class="btn-xl" style="background:#edf2f7;color:#2d3748;margin-top:18px" onclick="reiniciar()">← Buscar otra cédula</button>
     </div>`;
 }
@@ -327,8 +379,21 @@ function abrirFirma(procKey, docKey, titulo) {
   const proc = PROCS.find(p => p.key === procKey);
   $('#mTitulo').textContent = titulo;
   $('#mSub').textContent = 'Documento del proceso disciplinario';
-  $('#docContent').innerHTML = proc ? contenidoDocumento(proc, docKey) : '<p>No se encontró el documento.</p>';
-  $('#docContent').scrollTop = 0;
+  const dc = $('#docContent');
+  if (proc && window.PD_DOCS) {
+    // Muestra el DOCUMENTO OFICIAL completo (idéntico al que se genera y envía)
+    const tipo = TIPO_DOC[docKey] || 'citacion';
+    const d = PD_DOCS.construir(tipo, proc, CFG);
+    const html = PD_DOCS.documentoHTML(d.titulo, d.cuerpo, d.showTitle, CFG);
+    dc.style.padding = '0'; dc.style.maxHeight = 'none'; dc.style.overflow = 'hidden';
+    dc.innerHTML = `<iframe id="docFrame" style="width:100%;height:58vh;border:none;display:block;background:#fff"></iframe>`;
+    const fr = document.getElementById('docFrame');
+    const idoc = fr.contentDocument || fr.contentWindow.document;
+    idoc.open(); idoc.write(html); idoc.close();
+  } else {
+    dc.innerHTML = '<p>No se encontró el documento.</p>';
+  }
+  dc.scrollTop = 0;
   $('#docView').style.display = 'block';
   $('#signView').style.display = 'none';
   $('#fmodal').classList.add('show');
@@ -356,6 +421,49 @@ function setupPad() {
   c.addEventListener('pointercancel', () => { dibujando = false; });
 }
 function limpiarPad() { const c = $('#pad'); padCtx.clearRect(0, 0, c.width, c.height); hayTinta = false; $('#padHint').style.display = 'block'; }
+
+// ---- Genera el PDF del documento firmado y lo archiva en la carpeta del proceso ----
+const BUCKET_FIRMA = 'pruebas-disciplinarias';
+function tituloDoc(proc, docKey) {
+  const dDef = DOCS.find(x => x.key === docKey);
+  return dDef ? (typeof dDef.titulo === 'function' ? dDef.titulo(proc) : dDef.titulo) : 'Documento';
+}
+async function archivarDocumentoFirmado(proc, docKey) {
+  if (!window.SB || !window.html2pdf || !window.PD_DOCS) return false;
+  let cont = null;
+  try {
+    // Documento OFICIAL con la firma ya incluida en su lugar (la firma se guardó en proc[docKey])
+    const tipo = TIPO_DOC[docKey] || 'citacion';
+    const d = PD_DOCS.construir(tipo, proc, CFG);
+    const titulo = d.titulo;
+    const fechaFirma = proc[docKey + 'Fecha'] || hoyISO();
+    cont = document.createElement('div');
+    cont.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;background:#fff';
+    cont.innerHTML = PD_DOCS.documentoInner(d.titulo, d.cuerpo, d.showTitle, CFG);
+    document.body.appendChild(cont);
+    const blob = await html2pdf().set({
+      margin: 8,
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(cont).outputPdf('blob');
+
+    const safeTit = String(titulo).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${proc.key}/documentos/FIRMADO_${safeTit}_${fechaFirma}_${Date.now()}.pdf`;
+    const up = await SB.storage.from(BUCKET_FIRMA).upload(path, blob, { upsert: true, contentType: 'application/pdf' });
+    if (up.error) { console.warn('No se pudo archivar el documento firmado:', up.error.message); return false; }
+    // Dejar registrada la ruta del PDF firmado dentro del proceso
+    proc[docKey + 'Pdf'] = path;
+    await SB.from('procesos_disciplinarios').upsert({ key: proc.key, datos: proc }, { onConflict: 'key' });
+    return true;
+  } catch (e) {
+    console.warn('Error archivando documento firmado:', e);
+    return false;
+  } finally {
+    if (cont && cont.parentNode) cont.parentNode.removeChild(cont);
+  }
+}
+
 async function confirmarFirma() {
   if (!firmaActual) return;
   if (!hayTinta) { toast('Por favor firma antes de confirmar'); return; }
@@ -368,9 +476,13 @@ async function confirmarFirma() {
     const { error } = await SB.from('procesos_disciplinarios').upsert({ key: proc.key, datos: proc }, { onConflict: 'key' });
     if (error) throw error;
     cerrarFirma();
-    toast('✅ Documento firmado');
+    toast('✅ Documento firmado · archivando…');
     buscar();
     pintarCampana();
+    // Generar el PDF firmado y guardarlo en la carpeta del proceso (en segundo plano)
+    archivarDocumentoFirmado(proc, docKey).then(ok => {
+      toast(ok ? '📂 Documento firmado guardado en su carpeta' : '⚠️ Firma guardada, pero no se pudo archivar el PDF');
+    });
   } catch (e) { toast('Error al guardar la firma: ' + (e.message || e)); }
 }
 
