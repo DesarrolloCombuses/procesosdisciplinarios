@@ -9,8 +9,9 @@ js/empleados.bak.js
 js/datos_procesos.js
 datos_procesos.json
 
-# --- CREDENCIALES / CONFIGURACIÓN PRIVADA (usar los *.example.js como plantilla) ---
-js/supabase-config.js
+# --- CONFIGURACIÓN PRIVADA (webhook + correos de líderes) ---
+# Nota: supabase-config.js SÍ se publica (la "publishable key" es pública por diseño;
+# la seguridad real está en el login/Auth + las políticas RLS).
 js/notificaciones.js
 
 # --- ARRANCADOR LOCAL (no se publica) ---
