@@ -1,6 +1,6 @@
 // Service Worker - Procesos Disciplinarios COMBUSES
 // Manejo de versiones: al cambiar APP_VERSION se crea un caché nuevo y se avisa para actualizar.
-const APP_VERSION = '2.7.1';
+const APP_VERSION = '2.8.0';
 const CACHE = 'pd-cache-v' + APP_VERSION;
 
 // Recursos base que se guardan para funcionar sin conexión (parte visual)
@@ -12,6 +12,7 @@ const CORE = [
   'js/faltas.js',
   'js/articulos.js',
   'js/branding.js',
+  'js/lib/html2pdf.bundle.min.js',
   'js/supabase-config.js',
   'js/notificaciones.js',
   'js/documentos.js',
@@ -25,7 +26,8 @@ const CORE = [
 self.addEventListener('install', e => {
   // Se activa de inmediato: la versión nueva se aplica sola (sin tener que pulsar "Actualizar")
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).catch(() => {}));
+  // Cacheo individual: si algún archivo no está disponible (p.ej. archivos privados en la web), no rompe el resto
+  e.waitUntil(caches.open(CACHE).then(c => Promise.allSettled(CORE.map(u => c.add(u)))).catch(() => {}));
 });
 
 self.addEventListener('activate', e => {

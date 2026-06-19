@@ -64,8 +64,11 @@ async function guardarConfigNube(cfg) {
 }
 
 /* ---------- 1b. Versión y novedades ---------- */
-const APP_VERSION = '2.7.1';
+const APP_VERSION = '2.8.0';
 const NOVEDADES = [
+  { v: '2.8.0', f: '2026-06-19', items: [
+    'Los documentos (citación, acta, sanción) ahora también se pueden generar desde el navegador, sin el servidor local. Así la versión web puede crear PDF. En el computador, si el servidor local está activo, se usa para mayor calidad.'
+  ] },
   { v: '2.7.1', f: '2026-06-18', items: [
     'Modo producción activado: las notificaciones (correo y WhatsApp) ahora se envían a los datos reales del trabajador y a los líderes según su cargo. Se desactivó el modo prueba.'
   ] },
@@ -2582,49 +2585,61 @@ function armarDocumentoHTML(titulo, cuerpo, showTitle) {
   return window.PD_DOCS.documentoHTML(titulo, cuerpo, showTitle, State.config);
 }
 
-// Genera y DESCARGA el PDF directamente (1 clic): el servidor lo crea con Edge
+// Pide el PDF al servidor local (Edge) — mejor calidad. Lanza error si no está disponible.
+async function pedirPDFServidor(html, filename) {
+  let ultimoError;
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const res = await fetch('/generar-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html, filename }) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.blob();
+    } catch (e) { ultimoError = e; if (intento < 2) await new Promise(r => setTimeout(r, 700)); }
+  }
+  throw ultimoError;
+}
+// Genera el PDF en el propio navegador (funciona también en la web, sin servidor local)
+async function generarPDFNavegador(titulo, cuerpo, showTitle) {
+  if (!window.html2pdf || !window.PD_DOCS) throw new Error('Generador de PDF no disponible');
+  const cont = document.createElement('div');
+  cont.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;background:#fff';
+  cont.innerHTML = window.PD_DOCS.documentoInner(titulo, cuerpo, showTitle, State.config);
+  document.body.appendChild(cont);
+  try {
+    return await html2pdf().set({
+      margin: 8,
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(cont).outputPdf('blob');
+  } finally { cont.remove(); }
+}
+// Genera y DESCARGA el PDF: usa el servidor local si está disponible (mejor calidad);
+// si no (por ejemplo en la web), lo genera el propio navegador.
 async function imprimirDoc(titulo, cuerpo, showTitle = true) {
   const p = State.current || {};
   const filename = nombreArchivo(titulo, p);
-  const html = armarDocumentoHTML(titulo, cuerpo, showTitle);
   toast('Generando PDF…');
-  try {
-    // Reintenta hasta 3 veces ante fallos de red transitorios (ERR_NETWORK_CHANGED, etc.)
-    const pedirPDF = async () => {
-      let ultimoError;
-      for (let intento = 1; intento <= 3; intento++) {
-        try {
-          const res = await fetch('/generar-pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ html, filename })
-          });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res;
-        } catch (e) {
-          ultimoError = e;
-          if (intento < 3) { toast(`Reintentando generar el PDF (${intento}/2)…`); await new Promise(r => setTimeout(r, 900)); }
-        }
-      }
-      throw ultimoError;
-    };
-    const res = await pedirPDF();
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    toast('PDF descargado ✓', 'ok');
-    // Avisar si no hay datos de contacto para enviar la notificación
-    const fc = faltaContacto(p.celular || p.celularCitado, p.correoNotificacion || p.correoCitado);
-    if (fc.ninguno) toast('⚠️ Sin celular ni correo: el documento no se podrá enviar al trabajador', 'err');
-    // Enviar el PDF al webhook de Pabbly (para WhatsApp/correo)
-    if (window.enviarDocumentoWebhook) enviarDocumentoWebhook(blob, filename, p, titulo);
-  } catch (err) {
-    console.error(err);
-    toast('No se pudo generar el PDF. Asegúrate de abrir el programa con «ABRIR PROGRAMA.bat».', 'err');
+  let blob = null;
+  const esLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+  if (esLocal) {
+    try { blob = await pedirPDFServidor(armarDocumentoHTML(titulo, cuerpo, showTitle), filename); }
+    catch (e) { console.warn('Servidor PDF local no disponible; se genera en el navegador:', e); }
   }
+  if (!blob) {
+    try { blob = await generarPDFNavegador(titulo, cuerpo, showTitle); }
+    catch (e) { console.error(e); toast('No se pudo generar el PDF.', 'err'); return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('PDF generado ✓', 'ok');
+  // Avisar si no hay datos de contacto para enviar la notificación
+  const fc = faltaContacto(p.celular || p.celularCitado, p.correoNotificacion || p.correoCitado);
+  if (fc.ninguno) toast('⚠️ Sin celular ni correo: el documento no se podrá enviar al trabajador', 'err');
+  // Enviar el PDF al webhook de Pabbly (para WhatsApp/correo), si está configurado
+  if (window.enviarDocumentoWebhook) enviarDocumentoWebhook(blob, filename, p, titulo);
 }
 
 /* ---------- 14. Notificaciones ---------- */
