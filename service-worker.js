@@ -1,6 +1,6 @@
 // Service Worker - Procesos Disciplinarios COMBUSES
 // Manejo de versiones: al cambiar APP_VERSION se crea un caché nuevo y se avisa para actualizar.
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 const CACHE = 'pd-cache-v' + APP_VERSION;
 
 // Recursos base que se guardan para funcionar sin conexión (parte visual)
@@ -9,6 +9,7 @@ const CORE = [
   'css/styles.css',
   'js/datos_procesos.js',
   'js/empleados.js',
+  'js/empleados-remoto.js',
   'js/faltas.js',
   'js/articulos.js',
   'js/branding.js',

@@ -64,8 +64,11 @@ async function guardarConfigNube(cfg) {
 }
 
 /* ---------- 1b. Versión y novedades ---------- */
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 const NOVEDADES = [
+  { v: '2.9.0', f: '2026-06-23', items: [
+    'La lista de empleados ahora se carga en vivo desde la base publicada (Google Sheets), por lo que la consulta y el autocompletado de empleados ya funcionan también en la versión web. Para actualizar la base basta con editar la hoja.'
+  ] },
   { v: '2.8.0', f: '2026-06-19', items: [
     'Los documentos (citación, acta, sanción) ahora también se pueden generar desde el navegador, sin el servidor local. Así la versión web puede crear PDF. En el computador, si el servidor local está activo, se usa para mayor calidad.'
   ] },
@@ -474,6 +477,21 @@ async function init() {
   window.PD_LIDERES = State.config.lideres;
   enlazarUI();
   render();
+
+  // 3) Cargar la lista de empleados desde el CSV publicado (Google Sheets).
+  //    No bloquea la pantalla: si la vista actual aún no tenía empleados
+  //    (caso web), se vuelve a pintar cuando termina de cargar.
+  if (window.cargarEmpleadosRemoto) {
+    const teniaDatos = (window.EMPLEADOS || []).length > 0;
+    cargarEmpleadosRemoto().then(n => {
+      if (n) {
+        toast(`${n} empleados cargados`, 'ok');
+        if (!teniaDatos) render();
+      } else {
+        toast('⚠️ No se pudo cargar la lista de empleados.', 'err');
+      }
+    });
+  }
 }
 
 function enlazarUI() {
