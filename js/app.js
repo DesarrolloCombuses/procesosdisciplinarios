@@ -64,8 +64,11 @@ async function guardarConfigNube(cfg) {
 }
 
 /* ---------- 1b. Versión y novedades ---------- */
-const APP_VERSION = '2.9.1';
+const APP_VERSION = '2.9.2';
 const NOVEDADES = [
+  { v: '2.9.2', f: '2026-06-26', items: [
+    'Reglamento Interno de Trabajo actualizado al texto oficial vigente (13/11/2025): se completaron todos los numerales que faltaban en los Art. 96 (27), 98 (36), 100 (58) y 112 (47), y se agregó el Art. 101 (debido proceso). Ya se pueden seleccionar todos los numerales en la citación.'
+  ] },
   { v: '2.9.1', f: '2026-06-26', items: [
     'Portal de firma: al buscar por cédula ahora aparecen TODOS los documentos de la persona (antes un filtro de fecha ocultaba los procesos anteriores al 17 de junio). La campana de pendientes usa una ventana móvil de 90 días.'
   ] },
