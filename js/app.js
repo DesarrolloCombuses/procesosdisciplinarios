@@ -64,8 +64,11 @@ async function guardarConfigNube(cfg) {
 }
 
 /* ---------- 1b. Versión y novedades ---------- */
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.9.1';
 const NOVEDADES = [
+  { v: '2.9.1', f: '2026-06-26', items: [
+    'Portal de firma: al buscar por cédula ahora aparecen TODOS los documentos de la persona (antes un filtro de fecha ocultaba los procesos anteriores al 17 de junio). La campana de pendientes usa una ventana móvil de 90 días.'
+  ] },
   { v: '2.9.0', f: '2026-06-23', items: [
     'La lista de empleados ahora se carga en vivo desde la base publicada (Google Sheets), por lo que la consulta y el autocompletado de empleados ya funcionan también en la versión web. Para actualizar la base basta con editar la hoja.'
   ] },

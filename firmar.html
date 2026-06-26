@@ -145,7 +145,9 @@
 async function cargarProcesos() {
   const { data, error } = await SB.from('procesos_disciplinarios').select('key,datos').limit(5000);
   if (error) throw error;
-  return (data || []).map(r => (r.datos && typeof r.datos === 'object') ? r.datos : { key: r.key });
+  return (data || [])
+    .map(r => (r.datos && typeof r.datos === 'object') ? r.datos : { key: r.key })
+    .filter(p => !String(p.key || '').startsWith('TEST_AUTO_'));   // ocultar procesos de prueba
 }
 
 const $ = s => document.querySelector(s);
@@ -189,15 +191,20 @@ const DOCS = [
     fecha: p => p.fechaInicioSancion || p.fechaActaDescargos, resumen: p => p.motivo }
 ];
 
-// ---- Filtro por fecha: solo procesos desde esta fecha en adelante ----
-// (cambia esta fecha si necesitas otro corte)
-const FECHA_CORTE = '2026-06-17';
+// ---- Filtro de la CAMPANA: solo "pendientes recientes" para no saturar la lista global ----
+// OJO: la búsqueda por cédula NO usa este corte (ahí se ven TODOS los documentos de la persona).
+function fechaCorteReciente() {
+  const d = new Date(); d.setDate(d.getDate() - 90);   // últimos 90 días
+  return d.toISOString().slice(0, 10);
+}
 function aISO(f) {
   if (!f) return null;
   f = String(f).trim();
   let m = f.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);            // dd/mm/yyyy
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   m = f.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);                  // yyyy-mm-dd
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = f.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ]/);              // yyyy-mm-dd con hora (ISO largo)
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
   return null;
 }
@@ -208,7 +215,7 @@ function fechaRefISO(p) {
 }
 function desdeCorte(p) {
   const f = fechaRefISO(p);
-  return !!f && f >= FECHA_CORTE;
+  return !!f && f >= fechaCorteReciente();
 }
 
 // ---- Contenido legible del documento (para que la persona lo lea antes de firmar) ----
@@ -307,7 +314,7 @@ function buscar() {
   const cc = ($('#cc').value || '').replace(/\D/g, '').trim();
   if (!cc) { toast('Escribe tu cédula'); return; }
   const todosCc = PROCS.filter(p => String(p.cc || '').replace(/\D/g, '') === cc);
-  const mios = todosCc.filter(desdeCorte);   // solo procesos desde la fecha de corte
+  const mios = todosCc.slice();   // TODOS los documentos de esta persona (sin recorte de fecha)
   const nombre = (window.EMPLEADOS || []).find(e => String(e.cc).replace(/\D/g, '') === cc)?.nombre
     || todosCc[0]?.nombre || '';
 
